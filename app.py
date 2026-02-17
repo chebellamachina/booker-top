@@ -97,6 +97,33 @@ st.markdown("""
         padding: 10px 14px;
     }
 
+    /* ── Venues tab ── */
+    .venue-card {
+        background: var(--secondary-background-color, rgba(128,128,128,0.06));
+        border: 1px solid rgba(128,128,128,0.12);
+        border-radius: 10px;
+        padding: 10px 14px;
+        margin: 6px 0;
+    }
+    .venue-card:hover { border-color: rgba(99,102,241,0.3); }
+    .venue-name { font-weight: 700; font-size: 1.05em; }
+    .venue-stats { font-size: 0.85em; opacity: 0.7; margin-top: 2px; }
+    .venue-dates { font-size: 0.82em; margin-top: 4px; }
+    .venue-seg {
+        display: inline-block; padding: 1px 7px; border-radius: 10px;
+        font-size: 0.75em; font-weight: 600; margin: 1px 2px;
+        background: rgba(99,102,241,0.10); color: #6366f1;
+    }
+    .venue-indoor {
+        display: inline-block; padding: 1px 7px; border-radius: 10px;
+        font-size: 0.75em; font-weight: 600;
+    }
+    .venue-in { background: rgba(99,102,241,0.12); color: #6366f1; }
+    .venue-out { background: rgba(34,197,94,0.12); color: #16a34a; }
+    .venue-busy { background: rgba(239,68,68,0.10); color: #dc2626; }
+    .venue-moderate { background: rgba(234,179,8,0.10); color: #ca8a04; }
+    .venue-quiet { background: rgba(34,197,94,0.10); color: #16a34a; }
+
     /* ── Sources tab ── */
     .src-table {
         width: 100%; border-collapse: collapse; font-size: 0.88em;
@@ -503,6 +530,234 @@ def _render_insights(results: dict, city_name: str):
         )
 
 
+def _render_venues(results: dict):
+    """Venues tab — aggregate venue info from discovered events."""
+    if not results:
+        return
+
+    # Collect all events
+    all_events = []
+    for r in results.values():
+        all_events.extend(r["events"])
+
+    # Group by venue_name (skip events with no venue)
+    venue_map: dict[str, dict] = {}
+    for e in all_events:
+        vname = (e.get("venue_name") or "").strip()
+        if not vname or len(vname) < 2:
+            continue
+
+        # Normalize: lowercase key for grouping, keep best-cased version
+        key = vname.lower()
+        if key not in venue_map:
+            venue_map[key] = {
+                "name": vname,
+                "events": [],
+                "dates": set(),
+                "segments": Counter(),
+                "capacities": [],
+                "indoor_votes": {"true": 0, "false": 0, "null": 0},
+                "addresses": set(),
+                "sources": set(),
+                "has_own": False,
+            }
+        v = venue_map[key]
+        # Keep the longest version of the name (usually most complete)
+        if len(vname) > len(v["name"]):
+            v["name"] = vname
+        v["events"].append(e)
+        if e.get("date"):
+            v["dates"].add(e["date"])
+        seg = e.get("segment") or "other"
+        v["segments"][seg] += 1
+        cap = e.get("estimated_capacity")
+        if cap:
+            v["capacities"].append(cap)
+        indoor = e.get("is_indoor")
+        if indoor is True or indoor == 1:
+            v["indoor_votes"]["true"] += 1
+        elif indoor is False or indoor == 0:
+            v["indoor_votes"]["false"] += 1
+        else:
+            v["indoor_votes"]["null"] += 1
+        addr = e.get("venue_address") or ""
+        if addr.strip():
+            v["addresses"].add(addr.strip())
+        src = e.get("source_platform") or "Web"
+        v["sources"].add(src)
+        if e.get("is_own_event"):
+            v["has_own"] = True
+
+    if not venue_map:
+        st.info("No venue data found in the events. Venues are extracted from event listings.")
+        return
+
+    # Sort by event count descending
+    sorted_venues = sorted(venue_map.values(), key=lambda x: -len(x["events"]))
+
+    # ── Summary metrics ──
+    st.markdown("#### 🏛️ Venue Overview")
+    mc = st.columns([1, 1, 1, 1])
+    mc[0].metric("Venues", len(sorted_venues))
+    mc[1].metric("With 2+ events", sum(1 for v in sorted_venues if len(v["events"]) >= 2))
+    indoor_c = sum(1 for v in sorted_venues if v["indoor_votes"]["true"] > v["indoor_votes"]["false"])
+    outdoor_c = sum(1 for v in sorted_venues if v["indoor_votes"]["false"] > v["indoor_votes"]["true"])
+    mc[2].metric("Indoor", indoor_c)
+    mc[3].metric("Outdoor", outdoor_c)
+
+    st.divider()
+
+    # ── Busiest venues ──
+    busy = [v for v in sorted_venues if len(v["events"]) >= 2]
+    if busy:
+        st.markdown("#### 🔥 Busiest Venues")
+        st.caption("Venues with multiple events in your date range — likely high-activity spots")
+        for v in busy[:10]:
+            _render_venue_card(v)
+        st.divider()
+
+    # ── All venues table ──
+    st.markdown("#### 📋 All Detected Venues")
+    max_ev = max(len(v["events"]) for v in sorted_venues) if sorted_venues else 1
+
+    rows = ""
+    for v in sorted_venues:
+        n_ev = len(v["events"])
+        bar_w = int((n_ev / max_ev) * 80) if max_ev else 0
+
+        # Indoor/outdoor badge
+        iv = v["indoor_votes"]
+        if iv["true"] > iv["false"]:
+            io_badge = '<span class="venue-indoor venue-in">Indoor</span>'
+        elif iv["false"] > iv["true"]:
+            io_badge = '<span class="venue-indoor venue-out">Outdoor</span>'
+        else:
+            io_badge = ""
+
+        # Capacity
+        caps = v["capacities"]
+        cap_str = ""
+        if caps:
+            avg_cap = int(sum(caps) / len(caps))
+            cap_str = f"~{avg_cap}"
+
+        # Segments
+        top_seg = v["segments"].most_common(2)
+        seg_html = " ".join(f'<span class="venue-seg">{s}</span>' for s, _ in top_seg)
+
+        own_badge = ' <span class="own-badge">OWN</span>' if v["has_own"] else ""
+
+        rows += (
+            f"<tr>"
+            f"<td><strong>{v['name']}</strong>{own_badge}</td>"
+            f'<td>{n_ev} <span class="src-bar" style="width:{bar_w}px"></span></td>'
+            f"<td>{io_badge}</td>"
+            f"<td>{cap_str}</td>"
+            f"<td>{seg_html}</td>"
+            f"<td>{len(v['dates'])}</td>"
+            f"</tr>"
+        )
+
+    st.markdown(
+        f'<table class="src-table">'
+        f"<tr><th>Venue</th><th>Events</th><th>Type</th><th>Capacity</th><th>Segments</th><th>Days</th></tr>"
+        f"{rows}</table>",
+        unsafe_allow_html=True,
+    )
+    st.caption("Venues are extracted from event listings by AI. Capacity is estimated.")
+
+    # ── Venues with no events on certain days = potential availability ──
+    if busy:
+        st.divider()
+        st.markdown("#### 💡 Potential Availability")
+        st.caption("Active venues that have gaps in the date range — could mean they're available to book")
+        all_dates = sorted(results.keys())
+        for v in busy[:5]:
+            booked_dates = v["dates"]
+            free_dates = [d for d in all_dates if d not in booked_dates]
+            # Only show weekends as free
+            free_weekends = [
+                d for d in free_dates
+                if results.get(d, {}).get("day_name", "") in ("Friday", "Saturday", "Sunday")
+            ]
+            if free_weekends:
+                n = v["name"]
+                dates_str = ", ".join(
+                    f"{results[d]['day_name'][:3]} {d}" for d in free_weekends[:6]
+                )
+                if len(free_weekends) > 6:
+                    dates_str += f" +{len(free_weekends) - 6} more"
+                st.markdown(f"**{n}** — free weekends: {dates_str}")
+
+
+def _render_venue_card(venue: dict):
+    """Render a single venue as a rich card."""
+    name = venue["name"]
+    n_ev = len(venue["events"])
+    dates = sorted(venue["dates"])
+
+    # Activity level
+    if n_ev >= 5:
+        act_cls = "venue-busy"
+        act_txt = "Very Active"
+    elif n_ev >= 3:
+        act_cls = "venue-moderate"
+        act_txt = "Active"
+    else:
+        act_cls = "venue-quiet"
+        act_txt = "Moderate"
+
+    # Indoor/outdoor
+    iv = venue["indoor_votes"]
+    if iv["true"] > iv["false"]:
+        io_html = '<span class="venue-indoor venue-in">Indoor</span>'
+    elif iv["false"] > iv["true"]:
+        io_html = '<span class="venue-indoor venue-out">Outdoor</span>'
+    else:
+        io_html = ""
+
+    # Capacity
+    caps = venue["capacities"]
+    cap_str = ""
+    if caps:
+        avg = int(sum(caps) / len(caps))
+        cap_str = f" · ~{avg} cap"
+
+    # Segments
+    seg_html = " ".join(
+        f'<span class="venue-seg">{s} ({c})</span>'
+        for s, c in venue["segments"].most_common(3)
+    )
+
+    # Dates
+    dates_display = ", ".join(dates[:5])
+    if len(dates) > 5:
+        dates_display += f" +{len(dates) - 5} more"
+
+    # Sources
+    src_str = " · ".join(sorted(venue["sources"]))
+
+    # Address
+    addr_str = ""
+    addrs = list(venue["addresses"])
+    if addrs:
+        addr_str = f'<br><span class="venue-stats">📍 {addrs[0]}</span>'
+
+    own_tag = ' <span class="own-badge">OWN VENUE</span>' if venue["has_own"] else ""
+
+    st.markdown(
+        f'<div class="venue-card">'
+        f'<span class="venue-name">{name}</span>{own_tag} '
+        f'<span class="venue-indoor {act_cls}">{act_txt} ({n_ev} ev)</span> '
+        f'{io_html}{cap_str}'
+        f'{addr_str}'
+        f'<div class="venue-dates">{seg_html}</div>'
+        f'<div class="venue-stats">📅 {dates_display} · via {src_str}</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+
 def _render_sources(search_id: int):
     """Sources / debug tab — shows full pipeline trace."""
     log = get_debug_log(search_id)
@@ -706,7 +961,9 @@ if "last_search_id" in st.session_state:
 
         st.divider()
 
-        tab_cal, tab_tl, tab_ins, tab_src = st.tabs(["📅 Calendar", "📋 Timeline", "💡 Insights", "🔍 Sources"])
+        tab_cal, tab_tl, tab_ins, tab_ven, tab_src = st.tabs(
+            ["📅 Calendar", "📋 Timeline", "💡 Insights", "🏛️ Venues", "🔍 Sources"]
+        )
 
         with tab_cal:
             _render_calendar(results)
@@ -731,6 +988,9 @@ if "last_search_id" in st.session_state:
         with tab_ins:
             _render_insights(results, city_name)
 
+        with tab_ven:
+            _render_venues(results)
+
         with tab_src:
             _render_sources(search_id)
 
@@ -752,6 +1012,7 @@ if "last_search_id" not in st.session_state:
 - 📅 Calendar heatmap of competition
 - 📋 Timeline with every event found
 - 💡 Top date recommendations + insights
+- 🏛️ Venues: active venues, capacity, indoor/outdoor, availability gaps
 - 🔍 Sources: queries used, scrape results, blind-spot detection
 - 🏠 Your own events flagged automatically
 
