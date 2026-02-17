@@ -17,7 +17,10 @@ for key in ("SERPER_API_KEY", "OPENAI_API_KEY", "OWN_BRAND_KEYWORDS"):
         except (KeyError, FileNotFoundError):
             pass
 
-from db.database import init_db, seed_cities, get_all_cities, get_city_by_id
+from db.database import (
+    init_db, seed_cities, get_all_cities, get_city_by_id,
+    get_search_history, delete_search,
+)
 from core.search_orchestrator import run_search, get_results_by_date
 
 # ── Page Config ──────────────────────────────────────────────
@@ -142,6 +145,36 @@ with st.sidebar:
     radius = st.slider("Radius (km)", 5, 50, city["radius_km"] if city else 20)
 
     search_clicked = st.button("🚀 Run Search", type="primary", use_container_width=True)
+
+    # ── Search History ──
+    st.divider()
+    history = get_search_history()
+    if history:
+        st.markdown("#### 📂 Previous Searches")
+        for h in history:
+            segs = json.loads(h["segments"]) if h["segments"] else []
+            seg_label = ", ".join(segs[:2]) if segs else "all"
+            label = f"{h['city_name']} · {h['date_from']} → {h['date_to']}"
+            sub = f"{h['event_count']} events · {seg_label}"
+            col_btn, col_del = st.columns([5, 1])
+            with col_btn:
+                if st.button(
+                    f"📄 {label}",
+                    key=f"hist_{h['id']}",
+                    use_container_width=True,
+                    help=sub,
+                ):
+                    st.session_state["last_search_id"] = h["id"]
+                    st.session_state["last_city"] = h["city_name"]
+                    st.rerun()
+            with col_del:
+                if st.button("🗑️", key=f"del_{h['id']}", help="Delete"):
+                    delete_search(h["id"])
+                    if st.session_state.get("last_search_id") == h["id"]:
+                        del st.session_state["last_search_id"]
+                    st.rerun()
+    else:
+        st.caption("No previous searches yet.")
 
     st.divider()
     st.caption("Open-Meteo · Serper.dev · OpenAI")

@@ -272,6 +272,39 @@ def insert_weather_day(search_id: int, weather: dict):
     conn.close()
 
 
+def get_search_history() -> list[dict]:
+    """Get all completed searches with city name and event count."""
+    conn = get_connection()
+    rows = conn.execute("""
+        SELECT
+            s.id,
+            c.name as city_name,
+            s.date_from,
+            s.date_to,
+            s.segments,
+            s.status,
+            s.created_at,
+            (SELECT COUNT(*) FROM events e WHERE e.search_id = s.id) as event_count
+        FROM searches s
+        JOIN cities c ON s.city_id = c.id
+        WHERE s.status = 'completed'
+        ORDER BY s.created_at DESC
+        LIMIT 20
+    """).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def delete_search(search_id: int):
+    """Delete a search and its associated events/weather."""
+    conn = get_connection()
+    conn.execute("DELETE FROM weather_days WHERE search_id = ?", (search_id,))
+    conn.execute("DELETE FROM events WHERE search_id = ?", (search_id,))
+    conn.execute("DELETE FROM searches WHERE id = ?", (search_id,))
+    conn.commit()
+    conn.close()
+
+
 def get_events_for_search(search_id: int) -> list[dict]:
     conn = get_connection()
     rows = conn.execute(
