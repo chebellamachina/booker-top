@@ -48,7 +48,7 @@ def run_search(
 
         if progress_callback:
             progress_callback(
-                f"Found {len(search_results)} search results. Scraping pages...", 0.3
+                f"Found {len(search_results)} search results. Scraping pages...", 0.25
             )
 
         # Step 2: Scrape top results
@@ -57,12 +57,24 @@ def run_search(
 
         if progress_callback:
             progress_callback(
-                f"Scraped {len(scraped_pages)} pages. Extracting events with AI...", 0.5
+                f"Scraped {len(scraped_pages)} pages. Extracting events with AI...", 0.45
             )
 
-        # Step 3: AI-parse events from scraped pages
+        # Step 3: Build combined content for AI parsing
+        # Include BOTH scraped pages AND Serper snippets as data sources
+        all_pages = list(scraped_pages)
+
+        # Bundle Serper snippets as an extra "page" for AI to parse
+        serper_text = _build_serper_digest(search_results)
+        if serper_text:
+            all_pages.append({
+                "url": "google-search-results",
+                "content": serper_text,
+            })
+
+        # Step 4: AI-parse events from all sources
         events = parse_events_batch(
-            pages=scraped_pages,
+            pages=all_pages,
             city=city["name"],
             date_from=date_from,
             date_to=date_to,
@@ -73,11 +85,11 @@ def run_search(
                 f"Found {len(events)} events. Fetching weather data...", 0.7
             )
 
-        # Step 4: Store events
+        # Step 5: Store events
         for event in events:
             insert_event(search_id, event)
 
-        # Step 5: Fetch weather
+        # Step 6: Fetch weather
         d_from = date.fromisoformat(date_from)
         d_to = date.fromisoformat(date_to)
         weather_data = get_weather_for_range(
@@ -100,6 +112,32 @@ def run_search(
         raise e
 
     return search_id
+
+
+def _build_serper_digest(search_results: list[dict]) -> str:
+    """Build a text digest from Serper search result snippets.
+
+    This gives the AI parser data to work with even when scraping fails,
+    since Serper returns titles, snippets, and sometimes dates/venues.
+    """
+    if not search_results:
+        return ""
+
+    lines = ["=== GOOGLE SEARCH RESULTS ===\n"]
+    for i, r in enumerate(search_results[:30], 1):
+        title = r.get("title", "")
+        snippet = r.get("snippet", "")
+        link = r.get("link", "")
+        source = r.get("source", "")
+        lines.append(f"[{i}] {title}")
+        if snippet:
+            lines.append(f"    {snippet}")
+        if link:
+            lines.append(f"    URL: {link}")
+        lines.append("")
+
+    text = "\n".join(lines)
+    return text if len(text) > 50 else ""
 
 
 def get_results_by_date(search_id: int) -> dict:

@@ -28,36 +28,86 @@ st.set_page_config(
     layout="wide",
 )
 
-# Initialize DB
 init_db()
 seed_cities()
 
-# ── Styles ───────────────────────────────────────────────────
+# ── Responsive CSS ───────────────────────────────────────────
 
 st.markdown("""
 <style>
-    .competition-none { color: #22c55e; font-weight: bold; }
-    .competition-low { color: #84cc16; font-weight: bold; }
-    .competition-medium { color: #f59e0b; font-weight: bold; }
-    .competition-high { color: #ef4444; font-weight: bold; }
-    .outdoor-badge { background: #dbeafe; padding: 2px 8px; border-radius: 12px; font-size: 0.85em; }
-    .indoor-badge { background: #fef3c7; padding: 2px 8px; border-radius: 12px; font-size: 0.85em; }
-    .either-badge { background: #e5e7eb; padding: 2px 8px; border-radius: 12px; font-size: 0.85em; }
+    /* ── Base reset for mobile ── */
+    .block-container { padding: 1rem 1rem 3rem 1rem; }
+
+    /* ── Competition colors ── */
+    .comp-none { color: #22c55e; font-weight: 700; }
+    .comp-low { color: #84cc16; font-weight: 700; }
+    .comp-medium { color: #f59e0b; font-weight: 700; }
+    .comp-high { color: #ef4444; font-weight: 700; }
+
+    /* ── Own event badge ── */
+    .own-badge {
+        background: #8b5cf6; color: white;
+        padding: 2px 8px; border-radius: 12px;
+        font-size: 0.78em; font-weight: 700;
+        white-space: nowrap;
+    }
+
+    /* ── Calendar cells ── */
     .cal-cell {
         border: 1px solid #e5e7eb;
         border-radius: 8px;
-        padding: 6px 8px;
-        min-height: 70px;
-        font-size: 0.85em;
+        padding: 4px 6px;
+        min-height: 56px;
+        font-size: 0.82em;
+        line-height: 1.35;
     }
     .cal-none { background: #f0fdf4; }
-    .cal-low { background: #fefce8; }
-    .cal-medium { background: #fff7ed; }
+    .cal-low  { background: #fefce8; }
+    .cal-med  { background: #fff7ed; }
     .cal-high { background: #fef2f2; }
-    .own-event-badge {
-        background: #8b5cf6; color: white;
-        padding: 2px 8px; border-radius: 12px;
-        font-size: 0.8em; font-weight: bold;
+
+    /* ── Event card ── */
+    .ev-card {
+        background: #fafafa;
+        border-left: 3px solid #e5e7eb;
+        padding: 6px 10px;
+        margin: 4px 0;
+        border-radius: 0 6px 6px 0;
+        font-size: 0.9em;
+    }
+    .ev-card.ev-own { border-left-color: #8b5cf6; background: #f5f3ff; }
+    .ev-meta { color: #6b7280; font-size: 0.82em; }
+    .ev-name { font-weight: 600; }
+    .ev-name a { color: inherit; text-decoration: none; }
+    .ev-name a:hover { text-decoration: underline; }
+
+    /* ── Day header in timeline ── */
+    .day-hdr {
+        display: flex; flex-wrap: wrap; align-items: baseline;
+        gap: 8px; margin-bottom: 2px;
+    }
+    .day-hdr h3 { margin: 0; font-size: 1.15em; }
+
+    /* ── Metric cards responsive ── */
+    [data-testid="stMetric"] {
+        background: #f8fafc;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 10px 14px;
+    }
+
+    /* ── Mobile tweaks ── */
+    @media (max-width: 768px) {
+        .block-container { padding: 0.5rem 0.5rem 2rem 0.5rem; }
+        .cal-cell { min-height: 44px; padding: 3px 4px; font-size: 0.75em; }
+        [data-testid="stMetric"] { padding: 8px 10px; }
+        /* Stack columns on mobile */
+        [data-testid="column"] { min-width: 100% !important; }
+    }
+
+    /* ── Hide hamburger on mobile for cleaner look ── */
+    @media (max-width: 768px) {
+        header[data-testid="stHeader"] { padding: 0.5rem; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -68,7 +118,7 @@ st.markdown("""
 st.title("🎵 BookerTop")
 st.caption("Competitive landscape analysis for event planning")
 
-# ── Sidebar: Search Form ─────────────────────────────────────
+# ── Sidebar ─────────────────────────────────────────────
 
 with st.sidebar:
     st.header("🔍 New Search")
@@ -89,26 +139,28 @@ with st.sidebar:
         "latin/reggaeton", "rock/indie", "live-music", "festival",
     ]
     segments = st.multiselect(
-        "Segments of interest",
+        "Segments",
         options=segment_options,
         default=["electronic"],
-        help="Filter for specific event types. Leave empty for all.",
+        help="Filter for specific event types.",
     )
 
     city = get_city_by_id(selected_city_id)
-    radius = st.slider("Search radius (km)", 5, 50, city["radius_km"] if city else 20)
+    radius = st.slider("Radius (km)", 5, 50, city["radius_km"] if city else 20)
 
     search_clicked = st.button("🚀 Run Search", type="primary", use_container_width=True)
 
     st.divider()
-    st.caption("Powered by Open-Meteo · Serper.dev · OpenAI")
+    st.caption("Open-Meteo · Serper.dev · OpenAI")
 
 
-# ── Helper Functions ──────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════
+#  Helper renderers
+# ═══════════════════════════════════════════════════════════════
 
 
 def _render_date_card(day_data: dict):
-    """Render a single date card with events, weather, and competition info."""
+    """Mobile-friendly date card."""
     d = day_data["date"]
     day_name = day_data["day_name"]
     events = day_data["events"]
@@ -117,134 +169,89 @@ def _render_date_card(day_data: dict):
     segment_counts = day_data["segment_counts"]
     has_own = day_data.get("has_own_event", False)
 
-    # Competition color
-    comp_colors = {
-        "none": "🟢", "low": "🟡", "medium": "🟠", "high": "🔴"
-    }
-    comp_emoji = comp_colors.get(competition, "⚪")
+    comp_emoji = {"none": "🟢", "low": "🟡", "medium": "🟠", "high": "🔴"}.get(competition, "⚪")
+    is_weekend = day_name in ("Friday", "Saturday", "Sunday")
+    wknd = " ⭐" if is_weekend else ""
+    own_html = ' <span class="own-badge">🏠 OWN EVENT</span>' if has_own else ""
 
-    # Weather info
+    # Weather line
+    w_line = ""
     if weather:
         temp = f"{weather.get('temp_min_c', '?')}–{weather.get('temp_max_c', '?')}°C"
-        precip = f"{weather.get('precip_prob', '?')}% rain"
-        conditions = weather.get("conditions", "")
-        recommendation = weather.get("recommendation", "EITHER")
-        outdoor_score = weather.get("outdoor_score", 50)
-
-        weather_emoji = "☀️" if outdoor_score >= 75 else "⛅" if outdoor_score >= 50 else "🌧️"
-        rec_badge = {
-            "OUTDOOR": "🌿 Outdoor OK",
-            "INDOOR": "🏠 Indoor recommended",
-            "EITHER": "🔄 Indoor/Outdoor",
-        }.get(recommendation, "")
-    else:
-        temp = precip = conditions = rec_badge = weather_emoji = ""
-
-    # Header
-    is_weekend = day_name in ("Friday", "Saturday", "Sunday")
-    weekend_marker = " ⭐" if is_weekend else ""
-    own_marker = ""
-    if has_own:
-        own_marker = ' <span class="own-event-badge">🏠 OWN EVENT</span>'
+        precip = f"{weather.get('precip_prob', '?')}%💧"
+        score = weather.get("outdoor_score", 50)
+        w_emoji = "☀️" if score >= 75 else "⛅" if score >= 50 else "🌧️"
+        rec = {"OUTDOOR": "Outdoor OK", "INDOOR": "Indoor rec.", "EITHER": "Either"}.get(
+            weather.get("recommendation", ""), ""
+        )
+        w_line = f"{w_emoji} {temp} · {precip} · {rec}"
 
     with st.container(border=True):
-        # Title row
-        header_col, weather_col, comp_col = st.columns([3, 2, 2])
+        # Header — single line that wraps well on mobile
+        st.markdown(
+            f'<div class="day-hdr">'
+            f'<h3>{day_name[:3]}, {d}{wknd}</h3>'
+            f'<span>{comp_emoji} <strong>{competition.upper()}</strong> · {len(events)} ev</span>'
+            f'{own_html}'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
 
-        with header_col:
-            st.markdown(
-                f"### {day_name}, {d}{weekend_marker}{own_marker}",
-                unsafe_allow_html=True,
-            )
-
-        with weather_col:
-            if weather:
-                st.markdown(f"{weather_emoji} **{temp}** · {precip}")
-                st.caption(f"{conditions} — {rec_badge}")
-
-        with comp_col:
-            event_count = len(events)
-            st.markdown(f"{comp_emoji} **{competition.upper()}** competition")
-            st.caption(f"{event_count} event{'s' if event_count != 1 else ''}")
+        if w_line:
+            st.caption(w_line)
 
         # Events
         if events:
             for event in events:
-                _render_event_row(event)
+                _render_event_card(event)
         else:
-            st.success("No competing events found — potential opportunity!")
+            st.success("✅ No competing events — potential opportunity!")
 
         # Segment summary
         if segment_counts:
-            seg_text = " · ".join(
-                f"**{count}** {seg}" for seg, count in segment_counts.items()
-            )
-            st.caption(f"By segment: {seg_text}")
+            seg_text = " · ".join(f"**{c}** {s}" for s, c in segment_counts.items())
+            st.caption(seg_text)
 
 
-def _render_event_row(event: dict):
-    """Render a single event within a date card."""
-    name = event.get("name", "Unknown Event")
+def _render_event_card(event: dict):
+    """Single event as a compact card (works on mobile)."""
+    name = event.get("name", "Unknown")
     venue = event.get("venue_name") or ""
-    time = event.get("time") or ""
+    time_str = event.get("time") or ""
     segment = event.get("segment") or "other"
-    target = event.get("target_audience") or ""
-    capacity = event.get("estimated_capacity")
     source = event.get("source_platform") or "Web"
     url = event.get("source_url") or ""
     price = event.get("price_range") or ""
+    capacity = event.get("estimated_capacity")
     is_own = event.get("is_own_event", False)
 
-    # Segment emoji
-    seg_emoji = {
-        "electronic": "🎧",
-        "urban/hip-hop": "🎤",
-        "pop/commercial": "🎵",
-        "latin/reggaeton": "💃",
-        "rock/indie": "🎸",
-        "live-music": "🎺",
+    seg_e = {
+        "electronic": "🎧", "urban/hip-hop": "🎤", "pop/commercial": "🎵",
+        "latin/reggaeton": "💃", "rock/indie": "🎸", "live-music": "🎺",
         "festival": "🎪",
     }.get(segment, "🎵")
-
     if is_own:
-        seg_emoji = "🏠"
+        seg_e = "🏠"
 
-    # Build info line
-    parts = []
-    if time:
-        parts.append(time)
-    if venue:
-        parts.append(venue)
-    if capacity:
-        parts.append(f"~{capacity} cap")
-    if target:
-        parts.append(target)
-    if price:
-        parts.append(price)
+    own_cls = " ev-own" if is_own else ""
+    own_tag = ' <span class="own-badge">OWN</span>' if is_own else ""
 
-    info = " · ".join(parts)
+    name_html = f'<a href="{url}" target="_blank">{name}</a>' if url else name
 
-    col1, col2 = st.columns([5, 1])
-    with col1:
-        own_tag = ' <span class="own-event-badge">OWN</span>' if is_own else ""
-        if url:
-            st.markdown(
-                f"{seg_emoji} **[{name}]({url})** — {segment}{own_tag}",
-                unsafe_allow_html=True,
-            )
-        else:
-            st.markdown(
-                f"{seg_emoji} **{name}** — {segment}{own_tag}",
-                unsafe_allow_html=True,
-            )
-        if info:
-            st.caption(info)
-    with col2:
-        st.caption(f"via {source}")
+    meta_parts = [p for p in [time_str, venue, f"~{capacity}" if capacity else "", price, source] if p]
+    meta = " · ".join(meta_parts)
+
+    st.markdown(
+        f'<div class="ev-card{own_cls}">'
+        f'<span class="ev-name">{seg_e} {name_html}</span> — {segment}{own_tag}<br>'
+        f'<span class="ev-meta">{meta}</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
 
 def _render_calendar(results: dict):
-    """Render a calendar grid view of the search results."""
+    """Calendar grid — responsive."""
     if not results:
         return
 
@@ -252,16 +259,12 @@ def _render_calendar(results: dict):
     first = datetime.strptime(sorted_dates[0], "%Y-%m-%d")
     last = datetime.strptime(sorted_dates[-1], "%Y-%m-%d")
 
-    st.subheader("📅 Calendar View")
-
     # Day headers
-    day_headers = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     cols = st.columns(7)
-    for i, dh in enumerate(day_headers):
+    for i, dh in enumerate(["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]):
         cols[i].markdown(f"**{dh}**")
 
-    # Walk week by week
-    current = first - timedelta(days=first.weekday())  # start from Monday
+    current = first - timedelta(days=first.weekday())
     while current <= last + timedelta(days=(6 - last.weekday())):
         cols = st.columns(7)
         for i in range(7):
@@ -271,59 +274,47 @@ def _render_calendar(results: dict):
                 if d_str in results:
                     r = results[d_str]
                     comp = r["competition_level"]
-                    n_events = r["event_count"]
+                    n_ev = r["event_count"]
                     has_own = r.get("has_own_event", False)
-
-                    comp_emoji = {"none": "🟢", "low": "🟡", "medium": "🟠", "high": "🔴"}.get(comp, "⚪")
-                    bg = {"none": "cal-none", "low": "cal-low", "medium": "cal-medium", "high": "cal-high"}.get(comp, "")
-
+                    ce = {"none": "🟢", "low": "🟡", "medium": "🟠", "high": "🔴"}.get(comp, "⚪")
+                    bg = {"none": "cal-none", "low": "cal-low", "medium": "cal-med", "high": "cal-high"}.get(comp, "")
                     own_dot = " 🏠" if has_own else ""
-                    is_wknd = d.weekday() >= 4  # Fri, Sat, Sun
-
-                    weather = r.get("weather")
-                    w_icon = ""
-                    if weather:
-                        score = weather.get("outdoor_score", 50)
-                        w_icon = " ☀️" if score >= 75 else " ⛅" if score >= 50 else " 🌧️"
-
-                    day_num = d.day
+                    is_wknd = d.weekday() >= 4
+                    w = r.get("weather")
+                    wi = ""
+                    if w:
+                        s = w.get("outdoor_score", 50)
+                        wi = " ☀️" if s >= 75 else " ⛅" if s >= 50 else " 🌧️"
                     st.markdown(
                         f'<div class="cal-cell {bg}">'
-                        f'<strong>{"" if not is_wknd else "⭐"}{day_num}</strong>{own_dot}{w_icon}<br>'
-                        f'{comp_emoji} {n_events}ev'
+                        f'<strong>{"⭐" if is_wknd else ""}{d.day}</strong>{own_dot}{wi}<br>'
+                        f'{ce} {n_ev}'
                         f'</div>',
                         unsafe_allow_html=True,
                     )
                 elif first <= d <= last:
                     st.markdown(
-                        f'<div class="cal-cell" style="opacity:0.4">'
-                        f'<strong>{d.day}</strong><br>—'
-                        f'</div>',
+                        f'<div class="cal-cell" style="opacity:0.35">'
+                        f'<strong>{d.day}</strong><br>—</div>',
                         unsafe_allow_html=True,
                     )
                 else:
                     st.markdown(
-                        f'<div class="cal-cell" style="opacity:0.15">'
-                        f'{d.day}'
-                        f'</div>',
+                        f'<div class="cal-cell" style="opacity:0.12">{d.day}</div>',
                         unsafe_allow_html=True,
                     )
-
         current += timedelta(days=7)
 
-    # Legend
     st.caption(
-        "🟢 No competition · 🟡 Low · 🟠 Medium · 🔴 High · "
-        "🏠 Own event scheduled · ⭐ Weekend · ☀️⛅🌧️ Weather"
+        "🟢 None · 🟡 Low · 🟠 Med · 🔴 High · "
+        "🏠 Own event · ⭐ Weekend · ☀️⛅🌧️ Weather"
     )
 
 
 def _render_insights(results: dict, city_name: str):
-    """Render insights and recommendations section."""
+    """Insights — stacks on mobile."""
     if not results:
         return
-
-    st.subheader("💡 Insights & Recommendations")
 
     sorted_dates = sorted(results.keys())
     all_events = []
@@ -334,18 +325,14 @@ def _render_insights(results: dict, city_name: str):
 
     for d_str in sorted_dates:
         r = results[d_str]
-        events = r["events"]
-        all_events.extend(events)
-        is_weekend = r["day_name"] in ("Friday", "Saturday", "Sunday")
-
-        if is_weekend:
+        all_events.extend(r["events"])
+        is_wknd = r["day_name"] in ("Friday", "Saturday", "Sunday")
+        if is_wknd:
             weekend_dates.append(d_str)
             if r["competition_level"] in ("none", "low"):
                 low_comp_weekends.append(d_str)
-
         if r.get("has_own_event"):
             own_event_dates.append(d_str)
-
         w = r.get("weather")
         if w and w.get("outdoor_score", 0) >= 70:
             outdoor_ok_dates.append(d_str)
@@ -353,123 +340,114 @@ def _render_insights(results: dict, city_name: str):
     total_events = len(all_events)
     total_days = len(sorted_dates)
 
-    # ── Top recommended dates ──
-    scored_dates = []
+    # Score dates
+    scored = []
     for d_str in sorted_dates:
         r = results[d_str]
-        score = 0
-        # Weekend bonus
+        sc = 0
         if r["day_name"] in ("Friday", "Saturday"):
-            score += 30
+            sc += 30
         elif r["day_name"] == "Sunday":
-            score += 15
-        # Low competition bonus
-        comp_bonus = {"none": 40, "low": 25, "medium": 5, "high": -10}
-        score += comp_bonus.get(r["competition_level"], 0)
-        # Weather bonus
+            sc += 15
+        sc += {"none": 40, "low": 25, "medium": 5, "high": -10}.get(r["competition_level"], 0)
         w = r.get("weather")
         if w:
-            score += min(w.get("outdoor_score", 50), 100) * 0.3
-        # Own event penalty (already have something there)
+            sc += min(w.get("outdoor_score", 50), 100) * 0.3
         if r.get("has_own_event"):
-            score -= 50
+            sc -= 50
+        scored.append((d_str, r, sc))
+    scored.sort(key=lambda x: -x[2])
 
-        scored_dates.append((d_str, r, score))
+    # ── Top recommended ──
+    st.markdown("#### 🏆 Top 5 Recommended Dates")
+    for rank, (d_str, r, sc) in enumerate(scored[:5], 1):
+        w = r.get("weather")
+        ws = ""
+        if w:
+            ws = f" · {w.get('temp_max_c', '?')}°C"
+            if w.get("outdoor_score", 0) >= 70:
+                ws += " ☀️"
+        ce = {"none": "🟢", "low": "🟡", "medium": "🟠", "high": "🔴"}.get(r["competition_level"], "⚪")
+        ot = " 🏠" if r.get("has_own_event") else ""
+        st.markdown(
+            f"**{rank}.** {r['day_name'][:3]} **{d_str}** — "
+            f"{ce} {r['competition_level']} ({r['event_count']} ev){ws}{ot}"
+        )
+    st.caption("Weekend + low competition + good weather − own event conflict")
 
-    scored_dates.sort(key=lambda x: -x[2])
-    top_5 = scored_dates[:5]
+    st.divider()
 
-    # ── Layout ──
-    col_left, col_right = st.columns(2)
-
-    with col_left:
-        st.markdown("#### 🏆 Top 5 Recommended Dates")
-        for rank, (d_str, r, score) in enumerate(top_5, 1):
-            w = r.get("weather")
-            weather_str = ""
-            if w:
-                weather_str = f" · {w.get('temp_max_c', '?')}°C"
-                if w.get("outdoor_score", 0) >= 70:
-                    weather_str += " ☀️"
-            comp = r["competition_level"]
-            comp_e = {"none": "🟢", "low": "🟡", "medium": "🟠", "high": "🔴"}.get(comp, "⚪")
-            own_tag = " 🏠" if r.get("has_own_event") else ""
-            st.markdown(
-                f"**{rank}.** {r['day_name']}, **{d_str}** — "
-                f"{comp_e} {comp} ({r['event_count']} events)"
-                f"{weather_str}{own_tag}"
-            )
-        st.caption("Score based on: weekend, low competition, good weather, no own event conflict.")
-
-    with col_right:
-        st.markdown("#### 📊 Quick Stats")
-        st.markdown(f"- **{total_events}** total competing events in **{total_days}** days")
-        avg = total_events / total_days if total_days else 0
-        st.markdown(f"- **{avg:.1f}** events/day average")
-        st.markdown(f"- **{len(weekend_dates)}** weekend days, **{len(low_comp_weekends)}** with low/no competition")
+    # ── Quick stats ──
+    st.markdown("#### 📊 Quick Stats")
+    avg = total_events / total_days if total_days else 0
+    stat_cols = st.columns(2)
+    with stat_cols[0]:
+        st.markdown(f"- **{total_events}** events in **{total_days}** days")
+        st.markdown(f"- **{avg:.1f}** events/day avg")
+        st.markdown(f"- **{len(weekend_dates)}** weekends, **{len(low_comp_weekends)}** low comp")
+    with stat_cols[1]:
         if outdoor_ok_dates:
-            st.markdown(f"- **{len(outdoor_ok_dates)}** days with good outdoor weather")
+            st.markdown(f"- **{len(outdoor_ok_dates)}** good outdoor days")
         if own_event_dates:
-            st.markdown(f"- 🏠 **{len(own_event_dates)}** day(s) with own events already scheduled:")
+            st.markdown(f"- 🏠 **{len(own_event_dates)}** own event(s):")
             for od in own_event_dates:
-                own_events = [
-                    e for e in results[od]["events"] if e.get("is_own_event")
-                ]
-                names = ", ".join(e.get("name", "?") for e in own_events)
-                st.markdown(f"  - {od}: {names}")
+                names = ", ".join(
+                    e.get("name", "?") for e in results[od]["events"] if e.get("is_own_event")
+                )
+                st.caption(f"  {od}: {names}")
 
-    # ── Segment breakdown ──
-    st.markdown("#### 🎭 Competition by Segment")
-    seg_counter = Counter()
-    for e in all_events:
-        seg_counter[e.get("segment") or "other"] += 1
+    st.divider()
 
+    # ── Segments ──
+    seg_counter = Counter(e.get("segment") or "other" for e in all_events)
     if seg_counter:
+        st.markdown("#### 🎭 By Segment")
         seg_data = sorted(seg_counter.items(), key=lambda x: -x[1])
-        seg_cols = st.columns(min(len(seg_data), 6))
-        for i, (seg, count) in enumerate(seg_data[:6]):
-            seg_emoji = {
-                "electronic": "🎧", "urban/hip-hop": "🎤",
-                "pop/commercial": "🎵", "latin/reggaeton": "💃",
-                "rock/indie": "🎸", "live-music": "🎺",
-                "festival": "🎪",
-            }.get(seg, "🎵")
-            with seg_cols[i]:
-                st.metric(f"{seg_emoji} {seg}", count)
+        # Use 3 cols for mobile friendliness, up to 6 for desktop
+        n_cols = min(len(seg_data), 3)
+        for row_start in range(0, len(seg_data[:6]), n_cols):
+            row = seg_data[row_start:row_start + n_cols]
+            cols = st.columns(n_cols)
+            for i, (seg, count) in enumerate(row):
+                se = {
+                    "electronic": "🎧", "urban/hip-hop": "🎤", "pop/commercial": "🎵",
+                    "latin/reggaeton": "💃", "rock/indie": "🎸", "live-music": "🎺",
+                    "festival": "🎪",
+                }.get(seg, "🎵")
+                with cols[i]:
+                    st.metric(f"{se} {seg}", count)
 
-    # ── Day-of-week heatmap ──
-    st.markdown("#### 📆 Events by Day of Week")
+    # ── Day of week ──
     dow_counts = Counter()
     for d_str in sorted_dates:
         r = results[d_str]
         dow_counts[r["day_name"]] += r["event_count"]
 
-    day_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-    dow_cols = st.columns(7)
-    for i, day in enumerate(day_order):
-        count = dow_counts.get(day, 0)
-        bar = "█" * min(count, 20)
-        with dow_cols[i]:
-            st.markdown(f"**{day[:3]}**")
-            st.markdown(f"{count}")
-            if bar:
-                st.caption(bar)
+    if any(dow_counts.values()):
+        st.markdown("#### 📆 By Day of Week")
+        days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        full = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        cols = st.columns(7)
+        max_c = max(dow_counts.values()) if dow_counts.values() else 1
+        for i, (short, full_name) in enumerate(zip(days, full)):
+            c = dow_counts.get(full_name, 0)
+            bar_len = int((c / max_c) * 8) if max_c else 0
+            with cols[i]:
+                st.markdown(f"**{short}**")
+                st.markdown(f"{'█' * bar_len} {c}" if c else "·")
 
-    # ── Source platforms ──
-    platform_counter = Counter()
-    for e in all_events:
-        platform_counter[e.get("source_platform") or "Web"] += 1
-
-    if platform_counter:
-        st.markdown("#### 🌐 Event Sources")
-        source_text = " · ".join(
-            f"**{name}** ({count})"
-            for name, count in platform_counter.most_common()
+    # ── Sources ──
+    plat_counter = Counter(e.get("source_platform") or "Web" for e in all_events)
+    if plat_counter:
+        st.markdown("#### 🌐 Sources")
+        st.markdown(
+            " · ".join(f"**{n}** ({c})" for n, c in plat_counter.most_common())
         )
-        st.markdown(source_text)
 
 
-# ── Main: Run Search & Show Results ──────────────────────────
+# ═══════════════════════════════════════════════════════════════
+#  Main flow
+# ═══════════════════════════════════════════════════════════════
 
 if search_clicked:
     if date_from >= date_to:
@@ -478,9 +456,9 @@ if search_clicked:
         progress_bar = st.progress(0)
         status_text = st.empty()
 
-        def update_progress(message: str, progress: float):
-            status_text.text(message)
-            progress_bar.progress(progress)
+        def update_progress(msg: str, pct: float):
+            status_text.text(msg)
+            progress_bar.progress(pct)
 
         with st.spinner("Running search..."):
             try:
@@ -496,112 +474,87 @@ if search_clicked:
                 st.session_state["last_city"] = selected_city_name
                 progress_bar.empty()
                 status_text.empty()
-                st.success(f"Search complete! Found results for {selected_city_name}.")
+                st.success(f"✅ Search complete for {selected_city_name}!")
             except Exception as e:
                 progress_bar.empty()
                 status_text.empty()
                 st.error(f"Search failed: {e}")
 
-# ── Show Results ─────────────────────────────────────────────
+
+# ═══════════════════════════════════════════════════════════════
+#  Results display
+# ═══════════════════════════════════════════════════════════════
 
 if "last_search_id" in st.session_state:
     search_id = st.session_state["last_search_id"]
     city_name = st.session_state.get("last_city", "")
-
     results = get_results_by_date(search_id)
 
     if not results:
         st.info("No results found. Try broadening your search or date range.")
     else:
-        # Summary metrics
         total_events = sum(r["event_count"] for r in results.values())
-        dates_with_events = sum(1 for r in results.values() if r["event_count"] > 0)
-        low_competition_dates = sum(
-            1 for r in results.values()
-            if r["competition_level"] in ("none", "low")
-        )
-        own_event_count = sum(1 for r in results.values() if r.get("has_own_event"))
+        dates_w_events = sum(1 for r in results.values() if r["event_count"] > 0)
+        low_comp = sum(1 for r in results.values() if r["competition_level"] in ("none", "low"))
+        own_count = sum(1 for r in results.values() if r.get("has_own_event"))
 
-        st.header(f"📊 Results for {city_name}")
+        st.header(f"📊 {city_name}")
 
-        m_cols = st.columns(5)
-        m_cols[0].metric("Total Events", total_events)
-        m_cols[1].metric("Days Analyzed", len(results))
-        m_cols[2].metric("Days with Events", dates_with_events)
-        m_cols[3].metric("Low Competition", low_competition_dates)
-        m_cols[4].metric("🏠 Own Events", own_event_count)
+        # Metrics — 2 rows on mobile (2+2+1), single row on desktop
+        r1 = st.columns([1, 1, 1, 1, 1])
+        r1[0].metric("Events", total_events)
+        r1[1].metric("Days", len(results))
+        r1[2].metric("Active", dates_w_events)
+        r1[3].metric("Low Comp", low_comp)
+        r1[4].metric("🏠 Own", own_count)
 
         st.divider()
 
-        # ── Tabs: Calendar / Timeline / Insights ──
-        tab_cal, tab_timeline, tab_insights = st.tabs([
-            "📅 Calendar", "📋 Timeline", "💡 Insights"
-        ])
+        tab_cal, tab_tl, tab_ins = st.tabs(["📅 Calendar", "📋 Timeline", "💡 Insights"])
 
         with tab_cal:
             _render_calendar(results)
 
-        with tab_timeline:
-            # Segment filter
-            all_segments = set()
+        with tab_tl:
+            all_segs = set()
             for r in results.values():
-                all_segments.update(r["segment_counts"].keys())
-
-            if all_segments:
-                filter_segment = st.multiselect(
-                    "Filter by segment",
-                    options=sorted(all_segments),
-                    default=[],
-                    help="Show only dates with events in these segments",
-                    key="timeline_segment_filter",
+                all_segs.update(r["segment_counts"].keys())
+            filter_seg = []
+            if all_segs:
+                filter_seg = st.multiselect(
+                    "Filter segment", sorted(all_segs), default=[],
+                    key="tl_seg_filter",
                 )
-            else:
-                filter_segment = []
-
-            # Date timeline
-            for date_str in sorted(results.keys()):
-                day_data = results[date_str]
-
-                # Apply segment filter
-                if filter_segment:
-                    matching = any(
-                        e.get("segment") in filter_segment
-                        for e in day_data["events"]
-                    )
-                    if not matching and day_data["event_count"] > 0:
+            for ds in sorted(results.keys()):
+                dd = results[ds]
+                if filter_seg:
+                    if not any(e.get("segment") in filter_seg for e in dd["events"]) and dd["event_count"] > 0:
                         continue
+                _render_date_card(dd)
 
-                _render_date_card(day_data)
-
-        with tab_insights:
+        with tab_ins:
             _render_insights(results, city_name)
 
 
-# ── Empty state ──────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════
+#  Empty state
+# ═══════════════════════════════════════════════════════════════
 
 if "last_search_id" not in st.session_state:
     st.markdown("""
-    ### How to use
+### 👋 Welcome
 
-    1. **Select a city** from the sidebar (Buenos Aires, Ibiza, Madrid, or Miami)
-    2. **Choose a date range** you're considering for an event
-    3. **Pick segments** that are relevant (electronic, urban, etc.)
-    4. **Hit Run Search** and wait for results
+1. **Pick a city** in the sidebar
+2. **Set your date range**
+3. **Choose segments** (electronic, urban, etc.)
+4. **Run Search** → get results in seconds
 
-    The tool will:
-    - 🔍 Search Google for events in that city/date range
-    - 📄 Scrape event pages from multiple sources (RA, Fever, Fourvenues, etc.)
-    - 🤖 Use AI to extract and classify events
-    - 🌤️ Fetch weather data (forecast or historical averages)
-    - 📅 Present a calendar view with competition heatmap
-    - 💡 Generate insights and top date recommendations
-    - 🏠 Flag your own events if detected
+**What you'll get:**
+- 📅 Calendar heatmap of competition
+- 📋 Timeline with every event found
+- 💡 Top date recommendations + insights
+- 🏠 Your own events flagged automatically
 
-    ---
-
-    **Setup required:**
-    - `SERPER_API_KEY` — Free at [serper.dev](https://serper.dev) (2500 searches/month)
-    - `OPENAI_API_KEY` — For AI event parsing ([platform.openai.com](https://platform.openai.com))
-
-    Without API keys, the tool will use fallback methods (less accurate).
+---
+*Needs `SERPER_API_KEY` + `OPENAI_API_KEY` in Settings → Secrets*
     """)
