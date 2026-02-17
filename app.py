@@ -35,78 +35,71 @@ seed_cities()
 
 st.markdown("""
 <style>
-    /* ── Base reset for mobile ── */
+    /* ── Base ── */
     .block-container { padding: 1rem 1rem 3rem 1rem; }
 
-    /* ── Competition colors ── */
-    .comp-none { color: #22c55e; font-weight: 700; }
-    .comp-low { color: #84cc16; font-weight: 700; }
-    .comp-medium { color: #f59e0b; font-weight: 700; }
-    .comp-high { color: #ef4444; font-weight: 700; }
-
-    /* ── Own event badge ── */
+    /* ── Own event badge (works in both themes) ── */
     .own-badge {
-        background: #8b5cf6; color: white;
+        background: #8b5cf6; color: #fff;
         padding: 2px 8px; border-radius: 12px;
         font-size: 0.78em; font-weight: 700;
         white-space: nowrap;
     }
 
-    /* ── Calendar cells ── */
+    /* ── Calendar cells — use transparent overlays so they adapt ── */
     .cal-cell {
-        border: 1px solid #e5e7eb;
+        border: 1px solid rgba(128,128,128,0.2);
         border-radius: 8px;
         padding: 4px 6px;
         min-height: 56px;
         font-size: 0.82em;
         line-height: 1.35;
     }
-    .cal-none { background: #f0fdf4; }
-    .cal-low  { background: #fefce8; }
-    .cal-med  { background: #fff7ed; }
-    .cal-high { background: #fef2f2; }
+    .cal-none { background: rgba(34,197,94,0.10); }
+    .cal-low  { background: rgba(234,179,8,0.10); }
+    .cal-med  { background: rgba(249,115,22,0.12); }
+    .cal-high { background: rgba(239,68,68,0.12); }
 
-    /* ── Event card ── */
+    /* ── Event card — adapts to bg ── */
     .ev-card {
-        background: #fafafa;
-        border-left: 3px solid #e5e7eb;
+        background: var(--secondary-background-color, rgba(128,128,128,0.06));
+        border-left: 3px solid rgba(128,128,128,0.25);
         padding: 6px 10px;
         margin: 4px 0;
         border-radius: 0 6px 6px 0;
         font-size: 0.9em;
+        color: var(--text-color, inherit);
     }
-    .ev-card.ev-own { border-left-color: #8b5cf6; background: #f5f3ff; }
-    .ev-meta { color: #6b7280; font-size: 0.82em; }
+    .ev-card.ev-own {
+        border-left-color: #8b5cf6;
+        background: rgba(139,92,246,0.08);
+    }
+    .ev-meta { opacity: 0.65; font-size: 0.82em; }
     .ev-name { font-weight: 600; }
     .ev-name a { color: inherit; text-decoration: none; }
     .ev-name a:hover { text-decoration: underline; }
 
-    /* ── Day header in timeline ── */
+    /* ── Day header ── */
     .day-hdr {
         display: flex; flex-wrap: wrap; align-items: baseline;
         gap: 8px; margin-bottom: 2px;
     }
     .day-hdr h3 { margin: 0; font-size: 1.15em; }
 
-    /* ── Metric cards responsive ── */
+    /* ── Metric cards ── */
     [data-testid="stMetric"] {
-        background: #f8fafc;
-        border: 1px solid #e5e7eb;
+        background: var(--secondary-background-color, rgba(128,128,128,0.06));
+        border: 1px solid rgba(128,128,128,0.15);
         border-radius: 10px;
         padding: 10px 14px;
     }
 
-    /* ── Mobile tweaks ── */
+    /* ── Mobile ── */
     @media (max-width: 768px) {
         .block-container { padding: 0.5rem 0.5rem 2rem 0.5rem; }
         .cal-cell { min-height: 44px; padding: 3px 4px; font-size: 0.75em; }
         [data-testid="stMetric"] { padding: 8px 10px; }
-        /* Stack columns on mobile */
         [data-testid="column"] { min-width: 100% !important; }
-    }
-
-    /* ── Hide hamburger on mobile for cleaner look ── */
-    @media (max-width: 768px) {
         header[data-testid="stHeader"] { padding: 0.5rem; }
     }
 </style>
