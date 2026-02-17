@@ -2,11 +2,12 @@
 
 import json
 from datetime import date, datetime
+from urllib.parse import urlparse
 
 from db.database import (
     create_search, update_search_status, insert_event,
     insert_weather_day, get_city_by_id, get_events_for_search,
-    get_weather_for_search,
+    get_weather_for_search, save_debug_log,
 )
 from scrapers.google_search import search_events
 from scrapers.page_scraper import scrape_multiple
@@ -33,27 +34,54 @@ def run_search(
     # Create search record
     search_id = create_search(city_id, date_from, date_to, segments, radius_km)
 
+    # Debug log collects all pipeline info
+    debug = {
+        "queries": [],
+        "search_results_total": 0,
+        "scrape_attempts": [],
+        "scrape_success": 0,
+        "scrape_fail": 0,
+        "ai_input_pages": 0,
+        "events_extracted": 0,
+        "events_by_source": {},
+        "top_domains": {},
+    }
+
     try:
         if progress_callback:
             progress_callback("Searching Google for events...", 0.1)
 
-        # Step 1: Google Search for events
-        search_results = search_events(
+        # Step 1: Google Search for events (now returns debug info too)
+        search_results, query_debug = search_events(
             city=city["name"],
             country=city["country"],
             date_from=date_from,
             date_to=date_to,
             segments=segments if segments else None,
         )
+        debug["queries"] = query_debug
+        debug["search_results_total"] = len(search_results)
 
         if progress_callback:
             progress_callback(
                 f"Found {len(search_results)} search results. Scraping pages...", 0.25
             )
 
-        # Step 2: Scrape top results
+        # Step 2: Scrape top results — track success/fail per URL
         urls = [r["link"] for r in search_results if r.get("link")]
         scraped_pages = scrape_multiple(urls, max_pages=12)
+
+        # Build scrape debug info
+        scraped_urls = {p["url"] for p in scraped_pages}
+        for url in urls[:12]:
+            success = url in scraped_urls
+            debug["scrape_attempts"].append({
+                "url": url,
+                "domain": _extract_domain(url),
+                "success": success,
+            })
+        debug["scrape_success"] = len(scraped_pages)
+        debug["scrape_fail"] = min(len(urls), 12) - len(scraped_pages)
 
         if progress_callback:
             progress_callback(
@@ -61,7 +89,6 @@ def run_search(
             )
 
         # Step 3: Build combined content for AI parsing
-        # Include BOTH scraped pages AND Serper snippets as data sources
         all_pages = list(scraped_pages)
 
         # Bundle Serper snippets as an extra "page" for AI to parse
@@ -72,12 +99,34 @@ def run_search(
                 "content": serper_text,
             })
 
+        debug["ai_input_pages"] = len(all_pages)
+
         # Step 4: AI-parse events from all sources
         events = parse_events_batch(
             pages=all_pages,
             city=city["name"],
             date_from=date_from,
             date_to=date_to,
+        )
+
+        debug["events_extracted"] = len(events)
+
+        # Track events per source domain
+        source_counts = {}
+        for e in events:
+            src_url = e.get("source_url") or ""
+            domain = _extract_domain(src_url) if src_url else "serper-snippet"
+            source_counts[domain] = source_counts.get(domain, 0) + 1
+        debug["events_by_source"] = source_counts
+
+        # Track top domains from all search results
+        domain_counts = {}
+        for r in search_results:
+            dom = _extract_domain(r.get("link", ""))
+            if dom:
+                domain_counts[dom] = domain_counts.get(dom, 0) + 1
+        debug["top_domains"] = dict(
+            sorted(domain_counts.items(), key=lambda x: -x[1])[:20]
         )
 
         if progress_callback:
@@ -105,13 +154,35 @@ def run_search(
         if progress_callback:
             progress_callback("Search complete!", 1.0)
 
+        # Save debug log
+        save_debug_log(search_id, debug)
+
         update_search_status(search_id, "completed")
 
     except Exception as e:
+        # Save whatever debug we have even on failure
+        debug["error"] = str(e)
+        try:
+            save_debug_log(search_id, debug)
+        except Exception:
+            pass
         update_search_status(search_id, "failed")
         raise e
 
     return search_id
+
+
+def _extract_domain(url: str) -> str:
+    """Extract domain from URL, e.g. 'ra.co' from 'https://ra.co/events/...'."""
+    try:
+        parsed = urlparse(url)
+        domain = parsed.netloc or ""
+        # Remove www. prefix
+        if domain.startswith("www."):
+            domain = domain[4:]
+        return domain
+    except Exception:
+        return ""
 
 
 def _build_serper_digest(search_results: list[dict]) -> str:

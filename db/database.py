@@ -43,6 +43,7 @@ def init_db():
             segments TEXT DEFAULT '[]',
             radius_km INTEGER DEFAULT 20,
             status TEXT DEFAULT 'pending',
+            debug_log TEXT DEFAULT '{}',
             created_at TEXT DEFAULT (datetime('now')),
             FOREIGN KEY (city_id) REFERENCES cities(id)
         );
@@ -98,6 +99,14 @@ def init_db():
         );
     """)
     conn.commit()
+
+    # Migrate: add debug_log column if missing (existing DBs)
+    try:
+        conn.execute("SELECT debug_log FROM searches LIMIT 1")
+    except sqlite3.OperationalError:
+        conn.execute("ALTER TABLE searches ADD COLUMN debug_log TEXT DEFAULT '{}'")
+        conn.commit()
+
     conn.close()
 
 
@@ -303,6 +312,32 @@ def delete_search(search_id: int):
     conn.execute("DELETE FROM searches WHERE id = ?", (search_id,))
     conn.commit()
     conn.close()
+
+
+def save_debug_log(search_id: int, log: dict):
+    """Save pipeline debug log as JSON."""
+    conn = get_connection()
+    conn.execute(
+        "UPDATE searches SET debug_log = ? WHERE id = ?",
+        (json.dumps(log, default=str), search_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_debug_log(search_id: int) -> dict:
+    """Retrieve the debug log for a search."""
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT debug_log FROM searches WHERE id = ?", (search_id,)
+    ).fetchone()
+    conn.close()
+    if row and row["debug_log"]:
+        try:
+            return json.loads(row["debug_log"])
+        except (json.JSONDecodeError, TypeError):
+            return {}
+    return {}
 
 
 def get_events_for_search(search_id: int) -> list[dict]:

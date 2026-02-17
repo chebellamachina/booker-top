@@ -19,7 +19,7 @@ for key in ("SERPER_API_KEY", "OPENAI_API_KEY", "OWN_BRAND_KEYWORDS"):
 
 from db.database import (
     init_db, seed_cities, get_all_cities, get_city_by_id,
-    get_search_history, delete_search,
+    get_search_history, delete_search, get_debug_log,
 )
 from core.search_orchestrator import run_search, get_results_by_date
 
@@ -95,6 +95,38 @@ st.markdown("""
         border: 1px solid rgba(128,128,128,0.15);
         border-radius: 10px;
         padding: 10px 14px;
+    }
+
+    /* ── Sources tab ── */
+    .src-table {
+        width: 100%; border-collapse: collapse; font-size: 0.88em;
+    }
+    .src-table th {
+        text-align: left; padding: 6px 8px;
+        border-bottom: 2px solid rgba(128,128,128,0.2);
+        font-weight: 700; font-size: 0.82em; text-transform: uppercase;
+        opacity: 0.7;
+    }
+    .src-table td {
+        padding: 5px 8px;
+        border-bottom: 1px solid rgba(128,128,128,0.1);
+        vertical-align: top;
+    }
+    .src-table tr:hover td { background: rgba(128,128,128,0.04); }
+    .src-badge {
+        display: inline-block; padding: 1px 7px; border-radius: 10px;
+        font-size: 0.78em; font-weight: 600;
+    }
+    .src-ok { background: rgba(34,197,94,0.15); color: #16a34a; }
+    .src-fail { background: rgba(239,68,68,0.12); color: #dc2626; }
+    .src-type {
+        display: inline-block; padding: 1px 7px; border-radius: 10px;
+        font-size: 0.78em; font-weight: 600;
+        background: rgba(99,102,241,0.12); color: #6366f1;
+    }
+    .src-bar {
+        display: inline-block; height: 10px; border-radius: 3px;
+        background: rgba(99,102,241,0.5); min-width: 2px;
     }
 
     /* ── Mobile ── */
@@ -471,6 +503,144 @@ def _render_insights(results: dict, city_name: str):
         )
 
 
+def _render_sources(search_id: int):
+    """Sources / debug tab — shows full pipeline trace."""
+    log = get_debug_log(search_id)
+    if not log:
+        st.info("No debug log available for this search (run a new search to generate one).")
+        return
+
+    # ── Pipeline summary ──
+    st.markdown("#### 🔗 Pipeline Summary")
+    queries_used = len(log.get("queries", []))
+    total_results = log.get("search_results_total", 0)
+    scrape_ok = log.get("scrape_success", 0)
+    scrape_fail = log.get("scrape_fail", 0)
+    ai_pages = log.get("ai_input_pages", 0)
+    events_out = log.get("events_extracted", 0)
+
+    sc = st.columns([1, 1, 1, 1, 1])
+    sc[0].metric("Queries", queries_used)
+    sc[1].metric("Results", total_results)
+    sc[2].metric("Scraped", f"{scrape_ok}/{scrape_ok + scrape_fail}")
+    sc[3].metric("AI Pages", ai_pages)
+    sc[4].metric("Events", events_out)
+
+    st.divider()
+
+    # ── Queries table ──
+    queries = log.get("queries", [])
+    if queries:
+        st.markdown("#### 🔎 Search Queries")
+        max_res = max((q.get("result_count", 0) for q in queries), default=1) or 1
+        rows = ""
+        for q in queries:
+            qtype = q.get("source_type", "?")
+            qtext = q.get("query", "?")
+            total = q.get("result_count", 0)
+            new = q.get("new_unique", 0)
+            bar_w = int((total / max_res) * 80) if max_res else 0
+            rows += (
+                f"<tr>"
+                f'<td><span class="src-type">{qtype}</span></td>'
+                f"<td>{qtext}</td>"
+                f'<td>{total} <span class="src-bar" style="width:{bar_w}px"></span></td>'
+                f"<td>{new}</td>"
+                f"</tr>"
+            )
+        st.markdown(
+            f'<table class="src-table">'
+            f"<tr><th>Type</th><th>Query</th><th>Results</th><th>New</th></tr>"
+            f"{rows}</table>",
+            unsafe_allow_html=True,
+        )
+        st.caption("**Results** = total from Google. **New** = unique URLs not seen in previous queries.")
+
+    st.divider()
+
+    # ── Events by source domain ──
+    events_by_src = log.get("events_by_source", {})
+    if events_by_src:
+        st.markdown("#### 🏆 Events by Source Domain")
+        sorted_src = sorted(events_by_src.items(), key=lambda x: -x[1])
+        max_ev = max(v for _, v in sorted_src) if sorted_src else 1
+        rows = ""
+        for domain, count in sorted_src:
+            bar_w = int((count / max_ev) * 120) if max_ev else 0
+            rows += (
+                f"<tr>"
+                f"<td><strong>{domain or '(unknown)'}</strong></td>"
+                f'<td>{count} <span class="src-bar" style="width:{bar_w}px"></span></td>'
+                f"</tr>"
+            )
+        st.markdown(
+            f'<table class="src-table">'
+            f"<tr><th>Domain</th><th>Events</th></tr>"
+            f"{rows}</table>",
+            unsafe_allow_html=True,
+        )
+
+    st.divider()
+
+    # ── Top domains in search results ──
+    top_domains = log.get("top_domains", {})
+    if top_domains:
+        st.markdown("#### 🌐 Top Domains in Search Results")
+        sorted_dom = sorted(top_domains.items(), key=lambda x: -x[1])
+        max_d = max(v for _, v in sorted_dom) if sorted_dom else 1
+        rows = ""
+        for domain, count in sorted_dom[:15]:
+            bar_w = int((count / max_d) * 100) if max_d else 0
+            # Check if this domain also produced events
+            ev_count = events_by_src.get(domain, 0)
+            ev_badge = f' <span class="src-badge src-ok">{ev_count} ev</span>' if ev_count else ""
+            rows += (
+                f"<tr>"
+                f"<td><strong>{domain}</strong>{ev_badge}</td>"
+                f'<td>{count} <span class="src-bar" style="width:{bar_w}px"></span></td>'
+                f"</tr>"
+            )
+        st.markdown(
+            f'<table class="src-table">'
+            f"<tr><th>Domain</th><th>Appearances</th></tr>"
+            f"{rows}</table>",
+            unsafe_allow_html=True,
+        )
+
+    st.divider()
+
+    # ── Scrape attempts ──
+    scrape_log = log.get("scrape_attempts", [])
+    if scrape_log:
+        st.markdown("#### 🕷️ Scrape Attempts")
+        rows = ""
+        for s in scrape_log:
+            ok = s.get("success", False)
+            badge = '<span class="src-badge src-ok">OK</span>' if ok else '<span class="src-badge src-fail">FAIL</span>'
+            url = s.get("url", "?")
+            domain = s.get("domain", "?")
+            # Truncate long URLs for display
+            display_url = url if len(url) <= 80 else url[:77] + "..."
+            rows += (
+                f"<tr>"
+                f"<td>{badge}</td>"
+                f"<td><strong>{domain}</strong></td>"
+                f'<td style="font-size:0.82em;opacity:0.7">{display_url}</td>'
+                f"</tr>"
+            )
+        st.markdown(
+            f'<table class="src-table">'
+            f"<tr><th>Status</th><th>Domain</th><th>URL</th></tr>"
+            f"{rows}</table>",
+            unsafe_allow_html=True,
+        )
+
+    # ── Error ──
+    if log.get("error"):
+        st.divider()
+        st.error(f"Pipeline error: {log['error']}")
+
+
 # ═══════════════════════════════════════════════════════════════
 #  Main flow
 # ═══════════════════════════════════════════════════════════════
@@ -536,7 +706,7 @@ if "last_search_id" in st.session_state:
 
         st.divider()
 
-        tab_cal, tab_tl, tab_ins = st.tabs(["📅 Calendar", "📋 Timeline", "💡 Insights"])
+        tab_cal, tab_tl, tab_ins, tab_src = st.tabs(["📅 Calendar", "📋 Timeline", "💡 Insights", "🔍 Sources"])
 
         with tab_cal:
             _render_calendar(results)
@@ -561,6 +731,9 @@ if "last_search_id" in st.session_state:
         with tab_ins:
             _render_insights(results, city_name)
 
+        with tab_src:
+            _render_sources(search_id)
+
 
 # ═══════════════════════════════════════════════════════════════
 #  Empty state
@@ -579,6 +752,7 @@ if "last_search_id" not in st.session_state:
 - 📅 Calendar heatmap of competition
 - 📋 Timeline with every event found
 - 💡 Top date recommendations + insights
+- 🔍 Sources: queries used, scrape results, blind-spot detection
 - 🏠 Your own events flagged automatically
 
 ---
