@@ -1,0 +1,290 @@
+"""SQLite database setup and operations."""
+
+import sqlite3
+import json
+from pathlib import Path
+
+DB_PATH = Path(__file__).parent.parent / "bookertop.db"
+
+
+def get_connection() -> sqlite3.Connection:
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA foreign_keys=ON")
+    return conn
+
+
+def init_db():
+    """Create tables if they don't exist."""
+    conn = get_connection()
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS cities (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            country TEXT NOT NULL,
+            latitude REAL NOT NULL,
+            longitude REAL NOT NULL,
+            timezone TEXT NOT NULL,
+            radius_km INTEGER DEFAULT 20,
+            preferred_days TEXT DEFAULT '["Friday","Saturday"]',
+            venue_preference TEXT DEFAULT 'both',
+            peak_season_start INTEGER,
+            peak_season_end INTEGER,
+            known_sources TEXT DEFAULT '[]',
+            UNIQUE(name, country)
+        );
+
+        CREATE TABLE IF NOT EXISTS searches (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            city_id INTEGER NOT NULL,
+            date_from TEXT NOT NULL,
+            date_to TEXT NOT NULL,
+            segments TEXT DEFAULT '[]',
+            radius_km INTEGER DEFAULT 20,
+            status TEXT DEFAULT 'pending',
+            created_at TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY (city_id) REFERENCES cities(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            search_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            date TEXT NOT NULL,
+            time TEXT,
+            venue_name TEXT,
+            venue_address TEXT,
+            is_indoor INTEGER,
+            genre TEXT,
+            segment TEXT,
+            target_audience TEXT,
+            source_url TEXT,
+            source_platform TEXT,
+            price_range TEXT,
+            estimated_capacity INTEGER,
+            description TEXT,
+            FOREIGN KEY (search_id) REFERENCES searches(id),
+            UNIQUE(search_id, name, date, venue_name)
+        );
+
+        CREATE TABLE IF NOT EXISTS weather_days (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            search_id INTEGER NOT NULL,
+            date TEXT NOT NULL,
+            temp_max_c REAL,
+            temp_min_c REAL,
+            precip_prob REAL,
+            wind_kmh REAL,
+            conditions TEXT,
+            outdoor_score INTEGER,
+            recommendation TEXT,
+            FOREIGN KEY (search_id) REFERENCES searches(id),
+            UNIQUE(search_id, date)
+        );
+
+        CREATE TABLE IF NOT EXISTS venue_options (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            search_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            address TEXT,
+            venue_type TEXT,
+            is_indoor INTEGER,
+            capacity INTEGER,
+            rating REAL,
+            place_id TEXT,
+            image_url TEXT,
+            FOREIGN KEY (search_id) REFERENCES searches(id)
+        );
+    """)
+    conn.commit()
+    conn.close()
+
+
+def seed_cities():
+    """Insert default cities if they don't exist."""
+    cities = [
+        {
+            "name": "Buenos Aires",
+            "country": "AR",
+            "latitude": -34.6037,
+            "longitude": -58.3816,
+            "timezone": "America/Argentina/Buenos_Aires",
+            "radius_km": 25,
+            "preferred_days": json.dumps(["Friday", "Saturday"]),
+            "venue_preference": "both",
+            "peak_season_start": 10,
+            "peak_season_end": 3,
+            "known_sources": json.dumps([
+                "residentadvisor.net",
+                "passline.com",
+                "livepass.com.ar",
+            ]),
+        },
+        {
+            "name": "Ibiza",
+            "country": "ES",
+            "latitude": 38.9067,
+            "longitude": 1.4206,
+            "timezone": "Europe/Madrid",
+            "radius_km": 20,
+            "preferred_days": json.dumps(["Thursday", "Friday", "Saturday", "Sunday"]),
+            "venue_preference": "outdoor",
+            "peak_season_start": 5,
+            "peak_season_end": 10,
+            "known_sources": json.dumps([
+                "residentadvisor.net",
+                "ibiza-spotlight.com",
+            ]),
+        },
+        {
+            "name": "Madrid",
+            "country": "ES",
+            "latitude": 40.4168,
+            "longitude": -3.7038,
+            "timezone": "Europe/Madrid",
+            "radius_km": 20,
+            "preferred_days": json.dumps(["Friday", "Saturday"]),
+            "venue_preference": "both",
+            "peak_season_start": None,
+            "peak_season_end": None,
+            "known_sources": json.dumps([
+                "residentadvisor.net",
+                "fourvenues.com",
+                "ffrfrr.com",
+            ]),
+        },
+        {
+            "name": "Miami",
+            "country": "US",
+            "latitude": 25.7617,
+            "longitude": -80.1918,
+            "timezone": "America/New_York",
+            "radius_km": 30,
+            "preferred_days": json.dumps(["Friday", "Saturday"]),
+            "venue_preference": "both",
+            "peak_season_start": 10,
+            "peak_season_end": 5,
+            "known_sources": json.dumps([
+                "residentadvisor.net",
+                "eventbrite.com",
+            ]),
+        },
+    ]
+
+    conn = get_connection()
+    for city in cities:
+        conn.execute("""
+            INSERT OR IGNORE INTO cities
+            (name, country, latitude, longitude, timezone, radius_km,
+             preferred_days, venue_preference, peak_season_start, peak_season_end,
+             known_sources)
+            VALUES (:name, :country, :latitude, :longitude, :timezone, :radius_km,
+                    :preferred_days, :venue_preference, :peak_season_start, :peak_season_end,
+                    :known_sources)
+        """, city)
+    conn.commit()
+    conn.close()
+
+
+def get_all_cities() -> list[dict]:
+    conn = get_connection()
+    rows = conn.execute("SELECT * FROM cities ORDER BY name").fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_city_by_id(city_id: int) -> dict | None:
+    conn = get_connection()
+    row = conn.execute("SELECT * FROM cities WHERE id = ?", (city_id,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def create_search(city_id: int, date_from: str, date_to: str,
+                  segments: list[str], radius_km: int) -> int:
+    conn = get_connection()
+    cursor = conn.execute("""
+        INSERT INTO searches (city_id, date_from, date_to, segments, radius_km, status)
+        VALUES (?, ?, ?, ?, ?, 'running')
+    """, (city_id, date_from, date_to, json.dumps(segments), radius_km))
+    search_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return search_id
+
+
+def update_search_status(search_id: int, status: str):
+    conn = get_connection()
+    conn.execute("UPDATE searches SET status = ? WHERE id = ?", (status, search_id))
+    conn.commit()
+    conn.close()
+
+
+def insert_event(search_id: int, event: dict):
+    conn = get_connection()
+    conn.execute("""
+        INSERT OR IGNORE INTO events
+        (search_id, name, date, time, venue_name, venue_address, is_indoor,
+         genre, segment, target_audience, source_url, source_platform,
+         price_range, estimated_capacity, description)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        search_id,
+        event.get("name"),
+        event.get("date"),
+        event.get("time"),
+        event.get("venue_name"),
+        event.get("venue_address"),
+        event.get("is_indoor"),
+        event.get("genre"),
+        event.get("segment"),
+        event.get("target_audience"),
+        event.get("source_url"),
+        event.get("source_platform"),
+        event.get("price_range"),
+        event.get("estimated_capacity"),
+        event.get("description"),
+    ))
+    conn.commit()
+    conn.close()
+
+
+def insert_weather_day(search_id: int, weather: dict):
+    conn = get_connection()
+    conn.execute("""
+        INSERT OR REPLACE INTO weather_days
+        (search_id, date, temp_max_c, temp_min_c, precip_prob, wind_kmh,
+         conditions, outdoor_score, recommendation)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        search_id,
+        weather.get("date"),
+        weather.get("temp_max_c"),
+        weather.get("temp_min_c"),
+        weather.get("precip_prob"),
+        weather.get("wind_kmh"),
+        weather.get("conditions"),
+        weather.get("outdoor_score"),
+        weather.get("recommendation"),
+    ))
+    conn.commit()
+    conn.close()
+
+
+def get_events_for_search(search_id: int) -> list[dict]:
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT * FROM events WHERE search_id = ? ORDER BY date, time", (search_id,)
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_weather_for_search(search_id: int) -> list[dict]:
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT * FROM weather_days WHERE search_id = ? ORDER BY date", (search_id,)
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
