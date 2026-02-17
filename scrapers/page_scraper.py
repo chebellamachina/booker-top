@@ -82,10 +82,12 @@ def scrape_page(url: str, use_playwright: bool = False) -> str | None:
     """Scrape a page. Auto-detects whether to use static or dynamic scraping."""
     js_heavy_domains = [
         "ra.co", "residentadvisor.net",
-        "ffrfrr.com", "fever.co",
+        "feverup.com",
         "fourvenues.com",
         "xceed.me",
         "dice.fm",
+        "bomboapp.com",
+        "venti.com.ar",
     ]
 
     needs_js = use_playwright or any(domain in url for domain in js_heavy_domains)

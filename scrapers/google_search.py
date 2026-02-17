@@ -10,6 +10,10 @@ PLATFORM_QUERIES = {
     "AR": [
         "site:ra.co {city}",
         "site:passline.com {city}",
+        "site:feverup.com {city}",
+        "site:venti.com.ar {city}",
+        "site:bomboapp.com {city}",
+        "site:all-access.com.ar {city}",
         "site:eventbrite.com.ar {city}",
         "site:livepass.com.ar {city}",
     ],
@@ -17,20 +21,79 @@ PLATFORM_QUERIES = {
         "site:ra.co {city}",
         "site:fourvenues.com {city}",
         "site:xceed.me {city}",
-        "site:fever.co {city}",
+        "site:feverup.com {city}",
         "site:dice.fm {city}",
+        "site:bomboapp.com {city}",
     ],
     "US": [
         "site:ra.co {city}",
         "site:eventbrite.com {city}",
         "site:dice.fm {city}",
         "site:shotgun.live {city}",
+        "site:feverup.com {city}",
+    ],
+    "GB": [
+        "site:ra.co {city}",
+        "site:dice.fm {city}",
+        "site:shotgun.live {city}",
+        "site:skiddle.com {city}",
+        "site:feverup.com {city}",
+    ],
+    "DE": [
+        "site:ra.co {city}",
+        "site:dice.fm {city}",
+        "site:eventbrite.de {city}",
+    ],
+    "FR": [
+        "site:ra.co {city}",
+        "site:dice.fm {city}",
+        "site:shotgun.live {city}",
+    ],
+    "NL": [
+        "site:ra.co {city}",
+        "site:dice.fm {city}",
+        "site:partyflock.nl {city}",
+    ],
+    "BR": [
+        "site:ra.co {city}",
+        "site:eventbrite.com.br {city}",
+        "site:shotgun.live {city}",
+        "site:sympla.com.br {city}",
+        "site:bomboapp.com {city}",
+    ],
+    "CL": [
+        "site:ra.co {city}",
+        "site:passline.com {city}",
+        "site:eventbrite.cl {city}",
+        "site:bomboapp.com {city}",
+    ],
+    "CO": [
+        "site:ra.co {city}",
+        "site:eventbrite.co {city}",
+        "site:bomboapp.com {city}",
+    ],
+    "MX": [
+        "site:ra.co {city}",
+        "site:eventbrite.com.mx {city}",
+        "site:boletia.com {city}",
+        "site:bomboapp.com {city}",
+    ],
+    "PE": [
+        "site:ra.co {city}",
+        "site:joinnus.com {city}",
+        "site:bomboapp.com {city}",
+    ],
+    "UY": [
+        "site:ra.co {city}",
+        "site:passline.com {city}",
+        "site:bomboapp.com {city}",
     ],
     # Default for any other country
     "_default": [
         "site:ra.co {city}",
         "site:eventbrite.com {city}",
         "site:dice.fm {city}",
+        "site:feverup.com {city}",
     ],
 }
 
@@ -130,13 +193,32 @@ def _build_queries(
                 queries.append({"query": f"{seg} events {city} {month}", "type": "segment"})
 
     # ── Spanish queries for Spanish-speaking cities ──
-    if country in ("ES", "AR"):
+    if country in ("ES", "AR", "CL", "CO", "MX", "PE", "UY"):
         for month in months_es:
             queries.append({"query": f"eventos {city} {month}", "type": "general_es"})
             queries.append({"query": f"fiestas {city} {month}", "type": "general_es"})
             if segments:
                 for seg in segments:
                     queries.append({"query": f"eventos {seg} {city} {month}", "type": "segment_es"})
+
+    # ── Portuguese queries for Brazil ──
+    if country == "BR":
+        month_names_pt = {
+            1: "janeiro", 2: "fevereiro", 3: "março", 4: "abril",
+            5: "maio", 6: "junho", 7: "julho", 8: "agosto",
+            9: "setembro", 10: "outubro", 11: "novembro", 12: "dezembro",
+        }
+        months_pt = set()
+        current_pt = start
+        while current_pt <= end:
+            months_pt.add(f"{month_names_pt[current_pt.month]} {current_pt.year}")
+            if current_pt.month == 12:
+                current_pt = current_pt.replace(year=current_pt.year + 1, month=1)
+            else:
+                current_pt = current_pt.replace(month=current_pt.month + 1)
+        for month in months_pt:
+            queries.append({"query": f"eventos {city} {month}", "type": "general_pt"})
+            queries.append({"query": f"festas {city} {month}", "type": "general_pt"})
 
     # ── Platform-specific queries ──
     platform_templates = PLATFORM_QUERIES.get(country, PLATFORM_QUERIES["_default"])
@@ -211,7 +293,7 @@ def _fallback_search(
     platforms = {
         "Resident Advisor": f"https://ra.co/events/{city.lower().replace(' ', '-')}",
         "Eventbrite": f"https://www.eventbrite.com/d/{city.lower().replace(' ', '-')}/events/",
-        "Fever": f"https://ffrfrr.com/en/{city.lower().replace(' ', '-')}/",
+        "Fever": f"https://feverup.com/en/{city.lower().replace(' ', '-')}",
     }
 
     if country == "ES":
