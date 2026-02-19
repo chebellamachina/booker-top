@@ -5,95 +5,96 @@ import httpx
 
 
 # ── Platform-specific sources by country ──────────────────────
+# Each entry is (site_domain, search_terms) — search_terms help Google
+# find actual event pages rather than just homepages.
 
 PLATFORM_QUERIES = {
     "AR": [
-        "site:ra.co {city}",
-        "site:passline.com {city}",
-        "site:feverup.com {city}",
-        "site:venti.com.ar {city}",
-        "site:bomboapp.com {city}",
-        "site:all-access.com.ar {city}",
-        "site:eventbrite.com.ar {city}",
-        "site:livepass.com.ar {city}",
+        ("ra.co", "events {city}"),
+        ("passline.com", "fiestas eventos {city}"),
+        ("feverup.com", "planes {city}"),
+        ("venti.com.ar", "eventos {city}"),
+        ("bomboapp.com", "fiestas {city}"),
+        ("all-access.com.ar", "eventos fiestas {city}"),
+        ("eventbrite.com.ar", "fiestas eventos noche {city}"),
+        ("livepass.com.ar", "eventos {city}"),
     ],
     "ES": [
-        "site:ra.co {city}",
-        "site:fourvenues.com {city}",
-        "site:xceed.me {city}",
-        "site:feverup.com {city}",
-        "site:dice.fm {city}",
-        "site:bomboapp.com {city}",
+        ("ra.co", "events {city}"),
+        ("fourvenues.com", "discotecas fiestas {city}"),
+        ("xceed.me", "fiestas clubs {city}"),
+        ("feverup.com", "planes fiestas {city}"),
+        ("dice.fm", "events {city}"),
+        ("bomboapp.com", "fiestas {city}"),
     ],
     "US": [
-        "site:ra.co {city}",
-        "site:eventbrite.com {city}",
-        "site:dice.fm {city}",
-        "site:shotgun.live {city}",
-        "site:feverup.com {city}",
+        ("ra.co", "events {city}"),
+        ("eventbrite.com", "parties nightlife {city}"),
+        ("dice.fm", "events {city}"),
+        ("shotgun.live", "events parties {city}"),
+        ("feverup.com", "things to do parties {city}"),
     ],
     "GB": [
-        "site:ra.co {city}",
-        "site:dice.fm {city}",
-        "site:shotgun.live {city}",
-        "site:skiddle.com {city}",
-        "site:feverup.com {city}",
+        ("ra.co", "events {city}"),
+        ("dice.fm", "events {city}"),
+        ("shotgun.live", "events {city}"),
+        ("skiddle.com", "club nights {city}"),
+        ("feverup.com", "things to do {city}"),
     ],
     "DE": [
-        "site:ra.co {city}",
-        "site:dice.fm {city}",
-        "site:eventbrite.de {city}",
+        ("ra.co", "events {city}"),
+        ("dice.fm", "events {city}"),
+        ("eventbrite.de", "party nachtleben {city}"),
     ],
     "FR": [
-        "site:ra.co {city}",
-        "site:dice.fm {city}",
-        "site:shotgun.live {city}",
+        ("ra.co", "events {city}"),
+        ("dice.fm", "events {city}"),
+        ("shotgun.live", "soirées {city}"),
     ],
     "NL": [
-        "site:ra.co {city}",
-        "site:dice.fm {city}",
-        "site:partyflock.nl {city}",
+        ("ra.co", "events {city}"),
+        ("dice.fm", "events {city}"),
+        ("partyflock.nl", "feesten {city}"),
     ],
     "BR": [
-        "site:ra.co {city}",
-        "site:eventbrite.com.br {city}",
-        "site:shotgun.live {city}",
-        "site:sympla.com.br {city}",
-        "site:bomboapp.com {city}",
+        ("ra.co", "events {city}"),
+        ("eventbrite.com.br", "festas baladas {city}"),
+        ("shotgun.live", "events {city}"),
+        ("sympla.com.br", "festas eventos {city}"),
+        ("bomboapp.com", "festas {city}"),
     ],
     "CL": [
-        "site:ra.co {city}",
-        "site:passline.com {city}",
-        "site:eventbrite.cl {city}",
-        "site:bomboapp.com {city}",
+        ("ra.co", "events {city}"),
+        ("passline.com", "fiestas eventos {city}"),
+        ("eventbrite.cl", "fiestas eventos {city}"),
+        ("bomboapp.com", "fiestas {city}"),
     ],
     "CO": [
-        "site:ra.co {city}",
-        "site:eventbrite.co {city}",
-        "site:bomboapp.com {city}",
+        ("ra.co", "events {city}"),
+        ("eventbrite.co", "fiestas eventos rumbas {city}"),
+        ("bomboapp.com", "fiestas {city}"),
     ],
     "MX": [
-        "site:ra.co {city}",
-        "site:eventbrite.com.mx {city}",
-        "site:boletia.com {city}",
-        "site:bomboapp.com {city}",
+        ("ra.co", "events {city}"),
+        ("eventbrite.com.mx", "fiestas eventos antros {city}"),
+        ("boletia.com", "fiestas eventos {city}"),
+        ("bomboapp.com", "fiestas {city}"),
     ],
     "PE": [
-        "site:ra.co {city}",
-        "site:joinnus.com {city}",
-        "site:bomboapp.com {city}",
+        ("ra.co", "events {city}"),
+        ("joinnus.com", "fiestas eventos {city}"),
+        ("bomboapp.com", "fiestas {city}"),
     ],
     "UY": [
-        "site:ra.co {city}",
-        "site:passline.com {city}",
-        "site:bomboapp.com {city}",
+        ("ra.co", "events {city}"),
+        ("passline.com", "fiestas eventos {city}"),
+        ("bomboapp.com", "fiestas {city}"),
     ],
-    # Default for any other country
     "_default": [
-        "site:ra.co {city}",
-        "site:eventbrite.com {city}",
-        "site:dice.fm {city}",
-        "site:feverup.com {city}",
+        ("ra.co", "events {city}"),
+        ("eventbrite.com", "parties events {city}"),
+        ("dice.fm", "events {city}"),
+        ("feverup.com", "things to do {city}"),
     ],
 }
 
@@ -181,25 +182,28 @@ def _build_queries(
 
     queries = []
 
-    # ── General queries (English) ──
+    # ── General queries (English) — parties, clubs, nightlife ──
     for month in months_en:
-        queries.append({"query": f"events {city} {month}", "type": "general"})
-        queries.append({"query": f"concerts parties {city} {month}", "type": "general"})
-        queries.append({"query": f"nightlife {city} {month} what's on", "type": "general"})
+        queries.append({"query": f"events parties {city} {month}", "type": "general"})
+        queries.append({"query": f"club nights DJ sets {city} {month}", "type": "general"})
+        queries.append({"query": f"nightlife parties {city} {month} tickets", "type": "general"})
+        queries.append({"query": f"concerts live music {city} {month}", "type": "general"})
 
         # Segment-specific queries
         if segments:
             for seg in segments:
-                queries.append({"query": f"{seg} events {city} {month}", "type": "segment"})
+                queries.append({"query": f"{seg} party events {city} {month}", "type": "segment"})
 
-    # ── Spanish queries for Spanish-speaking cities ──
+    # ── Spanish queries ──
     if country in ("ES", "AR", "CL", "CO", "MX", "PE", "UY"):
         for month in months_es:
-            queries.append({"query": f"eventos {city} {month}", "type": "general_es"})
-            queries.append({"query": f"fiestas {city} {month}", "type": "general_es"})
+            queries.append({"query": f"fiestas eventos {city} {month}", "type": "general_es"})
+            queries.append({"query": f"fiestas electrónicas DJ {city} {month}", "type": "general_es"})
+            queries.append({"query": f"boliches clubs noche {city} {month}", "type": "general_es"})
+            queries.append({"query": f"recitales shows {city} {month} entradas", "type": "general_es"})
             if segments:
                 for seg in segments:
-                    queries.append({"query": f"eventos {seg} {city} {month}", "type": "segment_es"})
+                    queries.append({"query": f"fiestas {seg} {city} {month}", "type": "segment_es"})
 
     # ── Portuguese queries for Brazil ──
     if country == "BR":
@@ -217,24 +221,24 @@ def _build_queries(
             else:
                 current_pt = current_pt.replace(month=current_pt.month + 1)
         for month in months_pt:
-            queries.append({"query": f"eventos {city} {month}", "type": "general_pt"})
-            queries.append({"query": f"festas {city} {month}", "type": "general_pt"})
+            queries.append({"query": f"festas baladas {city} {month}", "type": "general_pt"})
+            queries.append({"query": f"eventos noite DJ {city} {month}", "type": "general_pt"})
 
     # ── Platform-specific queries ──
-    platform_templates = PLATFORM_QUERIES.get(country, PLATFORM_QUERIES["_default"])
-    for month in months_en:
-        for tmpl in platform_templates:
-            q = tmpl.format(city=city) + f" {month}"
-            queries.append({"query": q, "type": "platform"})
+    # Format: "site:domain.com search_terms" (no month — ticketeras index by listing, not by date text)
+    platform_entries = PLATFORM_QUERIES.get(country, PLATFORM_QUERIES["_default"])
+    for domain, terms in platform_entries:
+        q = f"site:{domain} {terms.format(city=city)}"
+        queries.append({"query": q, "type": "platform"})
 
-    # Cap total queries: 8 general + up to 6 platform = 14 max
+    # Cap total queries: 10 general + up to 8 platform = 18 max
     general = [q for q in queries if q["type"] != "platform"]
     platform = [q for q in queries if q["type"] == "platform"]
 
     # Deduplicate
     seen = set()
     deduped = []
-    for q in general[:8] + platform[:6]:
+    for q in general[:10] + platform[:8]:
         if q["query"] not in seen:
             seen.add(q["query"])
             deduped.append(q)

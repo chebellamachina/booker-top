@@ -27,16 +27,28 @@ For each event, return a JSON object with these fields:
 - venue_address: venue address if mentioned (string or null)
 - is_indoor: true/false/null based on venue type
 - genre: main music genre (electronic, urban, pop, latin, rock, live-music, other)
-- segment: event segment (electronic, urban/hip-hop, pop/commercial, latin/reggaeton, rock/indie, live-music, festival, other)
+- segment: one of: electronic, party/nightlife, urban/hip-hop, pop/commercial, latin/reggaeton, rock/indie, live-music, festival, other
 - target_audience: audience type (underground, mainstream, premium, mass)
 - price_range: price range if mentioned (string like "€20-30" or null)
 - estimated_capacity: estimated venue capacity as number (null if unknown)
 - description: one-line description of the event (string)
 
+Segment classification guide:
+- "electronic": techno, house, trance, EDM focused events with specific DJ lineups
+- "party/nightlife": club nights, themed parties, raves, after parties, pool parties, open bar events, nightclub events without specific genre focus
+- "urban/hip-hop": hip-hop, trap, R&B focused events
+- "latin/reggaeton": reggaeton, cumbia, salsa, Latin-focused parties
+- "pop/commercial": mainstream pop, Top 40 events
+- "rock/indie": rock concerts, indie shows
+- "live-music": concerts with live bands/singers
+- "festival": multi-day or large-scale multi-act events
+- Use "party/nightlife" for any general nightclub event, DJ party, themed party, or fiesta that doesn't clearly fit another genre
+
 Rules:
 - Only include events within the date range {date_from} to {date_to}
 - If a date is ambiguous, make your best guess based on context
 - For capacity, estimate based on venue type if not explicit (club ~500, festival ~5000, bar ~200)
+- Include ALL events you find: parties, concerts, club nights, DJ sets, festivals, etc.
 - Return an empty array if no events are found
 - Return ONLY valid JSON array, no other text
 
@@ -116,20 +128,23 @@ def _deduplicate(events: list[dict]) -> list[dict]:
     return unique
 
 
-OWN_BRAND_KEYWORDS = os.getenv(
-    "OWN_BRAND_KEYWORDS", ""
-).lower().split(",")
-OWN_BRAND_KEYWORDS = [k.strip() for k in OWN_BRAND_KEYWORDS if k.strip()]
+def _get_own_brand_keywords() -> list[str]:
+    """Get brand keywords at runtime (not import time) so env vars are available."""
+    raw = os.getenv("OWN_BRAND_KEYWORDS", "").lower()
+    return [k.strip() for k in raw.split(",") if k.strip()]
 
 
 def flag_own_events(events: list[dict]) -> list[dict]:
     """Flag events that match our own brand keywords (set via OWN_BRAND_KEYWORDS env var)."""
+    keywords = _get_own_brand_keywords()
+    if not keywords:
+        return events
     for event in events:
         name = (event.get("name") or "").lower()
         desc = (event.get("description") or "").lower()
         venue = (event.get("venue_name") or "").lower()
         combined = f"{name} {desc} {venue}"
-        event["is_own_event"] = any(kw in combined for kw in OWN_BRAND_KEYWORDS)
+        event["is_own_event"] = any(kw in combined for kw in keywords)
     return events
 
 

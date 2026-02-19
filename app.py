@@ -190,7 +190,7 @@ with st.sidebar:
         date_to = st.date_input("To", value=date.today() + timedelta(days=37))
 
     segment_options = [
-        "electronic", "urban/hip-hop", "pop/commercial",
+        "electronic", "party/nightlife", "urban/hip-hop", "pop/commercial",
         "latin/reggaeton", "rock/indie", "live-music", "festival",
     ]
     segments = st.multiselect(
@@ -311,9 +311,9 @@ def _render_event_card(event: dict):
     is_own = event.get("is_own_event", False)
 
     seg_e = {
-        "electronic": "🎧", "urban/hip-hop": "🎤", "pop/commercial": "🎵",
-        "latin/reggaeton": "💃", "rock/indie": "🎸", "live-music": "🎺",
-        "festival": "🎪",
+        "electronic": "🎧", "party/nightlife": "🪩", "urban/hip-hop": "🎤",
+        "pop/commercial": "🎵", "latin/reggaeton": "💃", "rock/indie": "🎸",
+        "live-music": "🎺", "festival": "🎪",
     }.get(segment, "🎵")
     if is_own:
         seg_e = "🏠"
