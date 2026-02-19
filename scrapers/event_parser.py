@@ -176,6 +176,8 @@ def _detect_platform(url: str) -> str:
         "allaccess.com.ar": "All Access",
         "songkick.com": "Songkick",
         "timeout.com": "Time Out",
+        "bresh.com": "Bresh",
+        "fiestabresh.com": "Bresh",
     }
     for domain, name in domain_map.items():
         if domain in url:

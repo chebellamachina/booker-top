@@ -91,6 +91,7 @@ def scrape_page(url: str, use_playwright: bool = False) -> str | None:
         "allaccess.com.ar",
         "buenosaliens.com",
         "musicaelectronica.club",
+        "bresh.com",
     ]
 
     needs_js = use_playwright or any(domain in url for domain in js_heavy_domains)

@@ -106,66 +106,71 @@ PLATFORM_QUERIES = {
 # These are scraped directly WITHOUT going through Google search,
 # guaranteeing we always hit the best sources.
 
+# NOTE on blocked sites: ra.co, passline.com and musicaelectronica.club all
+# use Cloudflare bot protection that blocks both static and Playwright scraping.
+# We still search them via Serper (Google has cached content), but don't waste
+# time on direct scraping.  Focus direct URLs on sites that actually respond.
+
 DIRECT_URLS = {
     "Buenos Aires": [
-        "https://ra.co/events/ar/buenosaires",
-        "https://www.buenosaliens.com/agenda:/",
-        "https://musicaelectronica.club/eventos/club-eventos/ciudad-de-buenos-aires-arg",
-        "https://www.allaccess.com.ar/list/Buenos+aires",
+        "https://venti.com.ar/explorar",
+        "https://www.eventbrite.com.ar/d/argentina--buenos-aires/fiestas/",
         "https://www.timeout.com/es/buenos-aires/agenda",
-        "https://www.passline.com/busqueda?cat=5",
+        "https://www.buenosaliens.com/",
+        "https://www.allaccess.com.ar/list/Buenos+aires",
+        "https://www.bresh.com",
     ],
     "Madrid": [
-        "https://ra.co/events/es/madrid",
+        "https://www.eventbrite.es/d/spain--madrid/fiestas/",
         "https://xceed.me/en/madrid/events",
     ],
     "Barcelona": [
-        "https://ra.co/events/es/barcelona",
+        "https://www.eventbrite.es/d/spain--barcelona/fiestas/",
         "https://xceed.me/en/barcelona/events",
     ],
     "Ibiza": [
-        "https://ra.co/events/es/ibiza",
+        "https://www.eventbrite.es/d/spain--ibiza/events/",
     ],
     "New York": [
-        "https://ra.co/events/us/newyork",
+        "https://www.eventbrite.com/d/ny--new-york/parties/",
         "https://www.songkick.com/metro-areas/7644-us-new-york/events",
     ],
     "Los Angeles": [
-        "https://ra.co/events/us/losangeles",
+        "https://www.eventbrite.com/d/ca--los-angeles/parties/",
     ],
     "Miami": [
-        "https://ra.co/events/us/miami",
+        "https://www.eventbrite.com/d/fl--miami/parties/",
     ],
     "London": [
-        "https://ra.co/events/uk/london",
+        "https://www.eventbrite.co.uk/d/united-kingdom--london/nightlife/",
         "https://www.skiddle.com/whats-on/London/",
     ],
     "Berlin": [
-        "https://ra.co/events/de/berlin",
+        "https://www.eventbrite.de/d/germany--berlin/nachtleben/",
     ],
     "Paris": [
-        "https://ra.co/events/fr/paris",
+        "https://www.eventbrite.fr/d/france--paris/soirées/",
     ],
     "Amsterdam": [
-        "https://ra.co/events/nl/amsterdam",
+        "https://www.eventbrite.nl/d/netherlands--amsterdam/nightlife/",
     ],
     "São Paulo": [
-        "https://ra.co/events/br/saopaulo",
+        "https://www.eventbrite.com.br/d/brazil--são-paulo/festas/",
     ],
     "Santiago": [
-        "https://ra.co/events/cl/santiago",
+        "https://www.eventbrite.cl/d/chile--santiago/fiestas/",
     ],
     "Bogotá": [
-        "https://ra.co/events/co/bogota",
+        "https://www.eventbrite.co/d/colombia--bogotá/fiestas/",
     ],
     "México City": [
-        "https://ra.co/events/mx/mexicocity",
+        "https://www.eventbrite.com.mx/d/mexico--ciudad-de-méxico/fiestas/",
     ],
     "Lima": [
-        "https://ra.co/events/pe/lima",
+        "https://www.eventbrite.com/d/peru--lima/fiestas/",
     ],
     "Montevideo": [
-        "https://ra.co/events/uy/montevideo",
+        "https://www.eventbrite.com/d/uruguay--montevideo/fiestas/",
     ],
 }
 
