@@ -9,7 +9,7 @@ from db.database import (
     insert_weather_day, get_city_by_id, get_events_for_search,
     get_weather_for_search, save_debug_log,
 )
-from scrapers.google_search import search_events
+from scrapers.google_search import search_events, get_direct_urls
 from scrapers.page_scraper import scrape_multiple
 from scrapers.event_parser import parse_events_batch
 from integrations.weather.open_meteo import get_weather_for_range
@@ -38,6 +38,7 @@ def run_search(
     debug = {
         "queries": [],
         "search_results_total": 0,
+        "direct_urls_scraped": 0,
         "scrape_attempts": [],
         "scrape_success": 0,
         "scrape_fail": 0,
@@ -64,16 +65,36 @@ def run_search(
 
         if progress_callback:
             progress_callback(
-                f"Found {len(search_results)} search results. Scraping pages...", 0.25
+                f"Found {len(search_results)} search results. Scraping pages...", 0.2
             )
 
-        # Step 2: Scrape top results — track success/fail per URL
+        # Step 2a: Scrape direct known listing URLs (guaranteed high-value)
+        direct_urls = get_direct_urls(city["name"])
+        direct_pages = scrape_multiple(direct_urls, max_pages=len(direct_urls)) if direct_urls else []
+        debug["direct_urls_scraped"] = len(direct_pages)
+        for durl in direct_urls:
+            debug["scrape_attempts"].append({
+                "url": durl,
+                "domain": _extract_domain(durl),
+                "success": any(p["url"] == durl for p in direct_pages),
+                "source": "direct",
+            })
+
+        if progress_callback:
+            progress_callback(
+                f"Scraped {len(direct_pages)} direct sources. Scraping Google results...", 0.35
+            )
+
+        # Step 2b: Scrape top Google results — track success/fail per URL
         urls = [r["link"] for r in search_results if r.get("link")]
-        scraped_pages = scrape_multiple(urls, max_pages=12)
+        # Exclude URLs we already scraped directly
+        direct_url_set = set(direct_urls)
+        urls = [u for u in urls if u not in direct_url_set]
+        scraped_pages = scrape_multiple(urls, max_pages=25)
 
         # Build scrape debug info
         scraped_urls = {p["url"] for p in scraped_pages}
-        for url in urls[:12]:
+        for url in urls[:25]:
             success = url in scraped_urls
             debug["scrape_attempts"].append({
                 "url": url,
@@ -81,15 +102,15 @@ def run_search(
                 "success": success,
             })
         debug["scrape_success"] = len(scraped_pages)
-        debug["scrape_fail"] = min(len(urls), 12) - len(scraped_pages)
+        debug["scrape_fail"] = min(len(urls), 25) - len(scraped_pages)
 
         if progress_callback:
             progress_callback(
-                f"Scraped {len(scraped_pages)} pages. Extracting events with AI...", 0.45
+                f"Scraped {len(scraped_pages) + len(direct_pages)} pages. Extracting events with AI...", 0.50
             )
 
         # Step 3: Build combined content for AI parsing
-        all_pages = list(scraped_pages)
+        all_pages = list(direct_pages) + list(scraped_pages)
 
         # Bundle Serper snippets as an extra "page" for AI to parse
         serper_text = _build_serper_digest(search_results)
@@ -131,7 +152,7 @@ def run_search(
 
         if progress_callback:
             progress_callback(
-                f"Found {len(events)} events. Fetching weather data...", 0.7
+                f"Found {len(events)} events. Fetching weather data...", 0.8
             )
 
         # Step 5: Store events

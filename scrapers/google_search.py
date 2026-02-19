@@ -12,12 +12,13 @@ PLATFORM_QUERIES = {
     "AR": [
         ("ra.co", "events {city}"),
         ("passline.com", "fiestas eventos {city}"),
-        ("feverup.com", "planes {city}"),
         ("venti.com.ar", "eventos {city}"),
-        ("bomboapp.com", "fiestas {city}"),
-        ("all-access.com.ar", "eventos fiestas {city}"),
+        ("allaccess.com.ar", "eventos fiestas {city}"),
+        ("wearebombo.com", "fiestas {city}"),
         ("eventbrite.com.ar", "fiestas eventos noche {city}"),
         ("livepass.com.ar", "eventos {city}"),
+        ("buenosaliens.com", "agenda fiestas {city}"),
+        ("musicaelectronica.club", "eventos {city}"),
     ],
     "ES": [
         ("ra.co", "events {city}"),
@@ -25,7 +26,7 @@ PLATFORM_QUERIES = {
         ("xceed.me", "fiestas clubs {city}"),
         ("feverup.com", "planes fiestas {city}"),
         ("dice.fm", "events {city}"),
-        ("bomboapp.com", "fiestas {city}"),
+        ("wearebombo.com", "fiestas {city}"),
     ],
     "US": [
         ("ra.co", "events {city}"),
@@ -33,6 +34,7 @@ PLATFORM_QUERIES = {
         ("dice.fm", "events {city}"),
         ("shotgun.live", "events parties {city}"),
         ("feverup.com", "things to do parties {city}"),
+        ("songkick.com", "concerts {city}"),
     ],
     "GB": [
         ("ra.co", "events {city}"),
@@ -40,6 +42,7 @@ PLATFORM_QUERIES = {
         ("shotgun.live", "events {city}"),
         ("skiddle.com", "club nights {city}"),
         ("feverup.com", "things to do {city}"),
+        ("songkick.com", "concerts {city}"),
     ],
     "DE": [
         ("ra.co", "events {city}"),
@@ -61,40 +64,108 @@ PLATFORM_QUERIES = {
         ("eventbrite.com.br", "festas baladas {city}"),
         ("shotgun.live", "events {city}"),
         ("sympla.com.br", "festas eventos {city}"),
-        ("bomboapp.com", "festas {city}"),
+        ("wearebombo.com", "festas {city}"),
     ],
     "CL": [
         ("ra.co", "events {city}"),
         ("passline.com", "fiestas eventos {city}"),
         ("eventbrite.cl", "fiestas eventos {city}"),
-        ("bomboapp.com", "fiestas {city}"),
+        ("wearebombo.com", "fiestas {city}"),
     ],
     "CO": [
         ("ra.co", "events {city}"),
         ("eventbrite.co", "fiestas eventos rumbas {city}"),
-        ("bomboapp.com", "fiestas {city}"),
+        ("wearebombo.com", "fiestas {city}"),
     ],
     "MX": [
         ("ra.co", "events {city}"),
         ("eventbrite.com.mx", "fiestas eventos antros {city}"),
         ("boletia.com", "fiestas eventos {city}"),
-        ("bomboapp.com", "fiestas {city}"),
+        ("wearebombo.com", "fiestas {city}"),
     ],
     "PE": [
         ("ra.co", "events {city}"),
         ("joinnus.com", "fiestas eventos {city}"),
-        ("bomboapp.com", "fiestas {city}"),
+        ("wearebombo.com", "fiestas {city}"),
     ],
     "UY": [
         ("ra.co", "events {city}"),
         ("passline.com", "fiestas eventos {city}"),
-        ("bomboapp.com", "fiestas {city}"),
+        ("wearebombo.com", "fiestas {city}"),
     ],
     "_default": [
         ("ra.co", "events {city}"),
         ("eventbrite.com", "parties events {city}"),
         ("dice.fm", "events {city}"),
         ("feverup.com", "things to do {city}"),
+        ("songkick.com", "concerts {city}"),
+    ],
+}
+
+# ── Direct URLs to scrape per city (high-value listing pages) ──────
+# These are scraped directly WITHOUT going through Google search,
+# guaranteeing we always hit the best sources.
+
+DIRECT_URLS = {
+    "Buenos Aires": [
+        "https://ra.co/events/ar/buenosaires",
+        "https://www.buenosaliens.com/agenda:/",
+        "https://musicaelectronica.club/eventos/club-eventos/ciudad-de-buenos-aires-arg",
+        "https://www.allaccess.com.ar/list/Buenos+aires",
+        "https://www.timeout.com/es/buenos-aires/agenda",
+        "https://www.passline.com/busqueda?cat=5",
+    ],
+    "Madrid": [
+        "https://ra.co/events/es/madrid",
+        "https://xceed.me/en/madrid/events",
+    ],
+    "Barcelona": [
+        "https://ra.co/events/es/barcelona",
+        "https://xceed.me/en/barcelona/events",
+    ],
+    "Ibiza": [
+        "https://ra.co/events/es/ibiza",
+    ],
+    "New York": [
+        "https://ra.co/events/us/newyork",
+        "https://www.songkick.com/metro-areas/7644-us-new-york/events",
+    ],
+    "Los Angeles": [
+        "https://ra.co/events/us/losangeles",
+    ],
+    "Miami": [
+        "https://ra.co/events/us/miami",
+    ],
+    "London": [
+        "https://ra.co/events/uk/london",
+        "https://www.skiddle.com/whats-on/London/",
+    ],
+    "Berlin": [
+        "https://ra.co/events/de/berlin",
+    ],
+    "Paris": [
+        "https://ra.co/events/fr/paris",
+    ],
+    "Amsterdam": [
+        "https://ra.co/events/nl/amsterdam",
+    ],
+    "São Paulo": [
+        "https://ra.co/events/br/saopaulo",
+    ],
+    "Santiago": [
+        "https://ra.co/events/cl/santiago",
+    ],
+    "Bogotá": [
+        "https://ra.co/events/co/bogota",
+    ],
+    "México City": [
+        "https://ra.co/events/mx/mexicocity",
+    ],
+    "Lima": [
+        "https://ra.co/events/pe/lima",
+    ],
+    "Montevideo": [
+        "https://ra.co/events/uy/montevideo",
     ],
 }
 
@@ -231,19 +302,24 @@ def _build_queries(
         q = f"site:{domain} {terms.format(city=city)}"
         queries.append({"query": q, "type": "platform"})
 
-    # Cap total queries: 10 general + up to 8 platform = 18 max
+    # Cap total queries: 12 general + up to 9 platform = 21 max
     general = [q for q in queries if q["type"] != "platform"]
     platform = [q for q in queries if q["type"] == "platform"]
 
     # Deduplicate
     seen = set()
     deduped = []
-    for q in general[:10] + platform[:8]:
+    for q in general[:12] + platform[:9]:
         if q["query"] not in seen:
             seen.add(q["query"])
             deduped.append(q)
 
     return deduped
+
+
+def get_direct_urls(city: str) -> list[str]:
+    """Return known high-value listing URLs for a city (scraped directly, not via Google)."""
+    return DIRECT_URLS.get(city, [])
 
 
 def _serper_search(api_key: str, query: str, num_results: int = 20) -> list[dict]:

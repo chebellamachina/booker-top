@@ -163,7 +163,7 @@ def _detect_platform(url: str) -> str:
         "passline.com": "Passline",
         "livepass.com": "LivePass",
         "venti.com.ar": "Venti",
-        "bomboapp.com": "Bombo",
+        "wearebombo.com": "Bombo",
         "all-access.com.ar": "All Access",
         "skiddle.com": "Skiddle",
         "sympla.com.br": "Sympla",
@@ -171,6 +171,11 @@ def _detect_platform(url: str) -> str:
         "boletia.com": "Boletia",
         "partyflock.nl": "Partyflock",
         "ticketmaster.": "Ticketmaster",
+        "buenosaliens.com": "Buenos Aliens",
+        "musicaelectronica.club": "MusicaElectronica",
+        "allaccess.com.ar": "All Access",
+        "songkick.com": "Songkick",
+        "timeout.com": "Time Out",
     }
     for domain, name in domain_map.items():
         if domain in url:

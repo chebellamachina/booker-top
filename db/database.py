@@ -128,10 +128,12 @@ def seed_cities():
                 "residentadvisor.net",
                 "passline.com",
                 "venti.com.ar",
-                "all-access.com.ar",
-                "bomboapp.com",
+                "allaccess.com.ar",
+                "wearebombo.com",
                 "feverup.com",
                 "livepass.com.ar",
+                "buenosaliens.com",
+                "musicaelectronica.club",
             ]),
         },
         {
@@ -366,7 +368,7 @@ def seed_cities():
             "known_sources": json.dumps([
                 "residentadvisor.net",
                 "passline.com",
-                "bomboapp.com",
+                "wearebombo.com",
             ]),
         },
         {

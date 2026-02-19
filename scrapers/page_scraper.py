@@ -86,8 +86,11 @@ def scrape_page(url: str, use_playwright: bool = False) -> str | None:
         "fourvenues.com",
         "xceed.me",
         "dice.fm",
-        "bomboapp.com",
+        "wearebombo.com",
         "venti.com.ar",
+        "allaccess.com.ar",
+        "buenosaliens.com",
+        "musicaelectronica.club",
     ]
 
     needs_js = use_playwright or any(domain in url for domain in js_heavy_domains)
@@ -101,7 +104,7 @@ def scrape_page(url: str, use_playwright: bool = False) -> str | None:
         return scrape_page_static(url)
 
 
-def scrape_multiple(urls: list[str], max_pages: int = 15) -> list[dict]:
+def scrape_multiple(urls: list[str], max_pages: int = 25) -> list[dict]:
     """Scrape multiple pages and return their content."""
     results = []
     for url in urls[:max_pages]:
